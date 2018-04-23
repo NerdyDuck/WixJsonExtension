@@ -1,0 +1,62 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="15.0">
+  <PropertyGroup Label="Project settings">
+    <TargetFramework>net20</TargetFramework>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <RootNamespace>NerdyDuck.Wix.JsonExtension</RootNamespace>
+    <AssemblyName>WixJsonExtension</AssemblyName>
+    <OutputType>Library</OutputType>
+    <Platforms>AnyCPU</Platforms>
+  </PropertyGroup>
+  <PropertyGroup Label="Assembly attributes">
+    <Company>NerdyDuck</Company>
+    <Copyright>Copyright © NerdyDuck 2018</Copyright>
+    <Product>WixJsonExtension</Product>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <LangVersion>latest</LangVersion>
+    <AssemblyTitle>WixJsonExtension</AssemblyTitle>
+    <Description>An extension to Windows® installer XML (WiX) to create or modify JSON-formatted files during an installation.</Description>
+  </PropertyGroup>
+  <PropertyGroup Label="Debug config" Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <DefineDebug>true</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Label="Release config" Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <DefineDebug>false</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Remove="Data\messages.xml" />
+    <None Remove="Data\tables.xml" />
+    <None Remove="Xsd\json.xsd" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Update="Data\*.xml" />
+    <EmbeddedResource Update="Xsd\json.xsd" />
+    <EmbeddedResource Include="..\wixlib\bin\$(Configuration)\json.wixlib">
+      <Link>Data\json.wixlib</Link>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Data\messages.xml" />
+    <EmbeddedResource Include="Data\tables.xml" />
+    <EmbeddedResource Include="Xsd\json.xsd" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="wix">
+      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\WiX Toolset v3.11\bin\wix.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,124 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="CustomAction.cpp" />
+    <ClCompile Include="stdafx.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="targetver.h" />
+    <ClInclude Include="jsoncons\json.hpp">
+      <Filter>jsoncons</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\json_decoder.hpp">
+      <Filter>jsoncons</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\json_deserializer.hpp">
+      <Filter>jsoncons</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\json_error_category.hpp">
+      <Filter>jsoncons</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\json_exception.hpp">
+      <Filter>jsoncons</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\json_filter.hpp">
+      <Filter>jsoncons</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\json_input_handler.hpp">
+      <Filter>jsoncons</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\json_output_handler.hpp">
+      <Filter>jsoncons</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\json_parser.hpp">
+      <Filter>jsoncons</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\json_reader.hpp">
+      <Filter>jsoncons</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\json_serializer.hpp">
+      <Filter>jsoncons</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\json_structures.hpp">
+      <Filter>jsoncons</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\json_type_traits.hpp">
+      <Filter>jsoncons</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\jsoncons_config.hpp">
+      <Filter>jsoncons</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\jsoncons_utilities.hpp">
+      <Filter>jsoncons</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\parse_error_handler.hpp">
+      <Filter>jsoncons</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\serialization_options.hpp">
+      <Filter>jsoncons</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\serialization_traits.hpp">
+      <Filter>jsoncons</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\version.hpp">
+      <Filter>jsoncons</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\detail\heap_only_string.hpp">
+      <Filter>jsoncons\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\detail\number_parsers.hpp">
+      <Filter>jsoncons\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\detail\number_printers.hpp">
+      <Filter>jsoncons\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\detail\obufferedstream.hpp">
+      <Filter>jsoncons\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\detail\type_traits_helper.hpp">
+      <Filter>jsoncons\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\detail\unicode_traits.hpp">
+      <Filter>jsoncons\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons\detail\writer.hpp">
+      <Filter>jsoncons\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons_ext\jsonpath\json_query.hpp">
+      <Filter>jsoncons_ext\jsonpath</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons_ext\jsonpath\jsonpath_error_category.hpp">
+      <Filter>jsoncons_ext\jsonpath</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons_ext\jsonpath\jsonpath_filter.hpp">
+      <Filter>jsoncons_ext\jsonpath</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons_ext\jsonpointer\jsonpointer.hpp">
+      <Filter>jsoncons_ext\jsonpointer</Filter>
+    </ClInclude>
+    <ClInclude Include="jsoncons_ext\jsonpointer\jsonpointer_error_category.hpp">
+      <Filter>jsoncons_ext\jsonpointer</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="CustomAction.def" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="jsoncons">
+      <UniqueIdentifier>{02e44810-1b41-4904-8988-b0adbc129b9f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="jsoncons\detail">
+      <UniqueIdentifier>{d3205178-8c01-4867-a82f-c6dbaf1d683f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="jsoncons_ext">
+      <UniqueIdentifier>{02e483a3-3118-4c7b-b536-fa85d80c4e2c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="jsoncons_ext\jsonpath">
+      <UniqueIdentifier>{1a45fa6b-0b45-4eac-b8e7-71402189d2fb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="jsoncons_ext\jsonpointer">
+      <UniqueIdentifier>{af733af0-d2b1-42ae-975b-eb1f06a5b348}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

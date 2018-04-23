@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+
+<Messages Namespace="NerdyDuck.Wix.JsonExtension" Resources="Data.Messages" xmlns="http://schemas.microsoft.com/genmsgs/2004/07/messages">
+    <Class Name="JsonErrors" ContainerName="JsonErrorEventArgs" BaseContainerName="WixErrorEventArgs">
+        <!--<Message Id="UnsupportedRegistryType" Number="5157" SourceLineNumbers="no">
+            <Instance>
+                Ignoring the registry value '{0}' found on line {1}, because it is of a type unsupported by Windows Installer ({2}).
+                <Parameter Type="System.String" Name="registryValue" />
+                <Parameter Type="System.Int32" Name="regFileLineNumber" />
+                <Parameter Type="System.String" Name="unsupportedType" />
+            </Instance>
+        </Message>-->
+    </Class>
+</Messages>

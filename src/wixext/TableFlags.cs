@@ -1,0 +1,17 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace NerdyDuck.Wix.JsonExtension
+{
+	[Flags]
+	internal enum TableFlags
+	{
+		DeleteValue = 1,
+		SetValue = 2,
+		AddArrayValue = 4,
+		Uninstall = 8,
+		PreserveDate = 16,
+		JsonPointer = 32
+	}
+}

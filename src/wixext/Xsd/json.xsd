@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+
+<xs:schema xmlns:html="http://www.w3.org/1999/xhtml" xmlns:wix="http://schemas.microsoft.com/wix/2006/wi" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xse="http://schemas.microsoft.com/wix/2005/XmlSchemaExtension" targetNamespace="http://schemas.nerdyduck.de/wix/JsonExtension" xmlns="http://schemas.nerdyduck.de/wix/JsonExtension">
+  <xs:annotation>
+    <xs:documentation>The source code schema for the Windows Installer JSON Toolset Extension.</xs:documentation>
+  </xs:annotation>
+  <xs:import namespace="http://schemas.microsoft.com/wix/2006/wi" />
+  <xs:element name="JsonFile">
+    <xs:annotation>
+      <xs:documentation>Adds or removes .json file entries.  If you use the JsonFile element you must reference WixJsonExtension.dll as it contains the JsonFile custom actions.</xs:documentation>
+      <xs:appinfo>
+        <xse:parent namespace="http://schemas.microsoft.com/wix/2006/wi" ref="Component" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="Id" use="required" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>Identifier for json file modification.</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="File" use="required" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>Path of the .json file to modify.</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="ElementPath" use="required" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The path to the parent element of the element to be modified. The semantic can be either JSON Path or JSON Pointer language, as specified in the SelectionLanguage attribute. Note that this is a formatted field and therefore, square brackets in the path must be escaped. In addition, JSON Path and Pointer allow backslashes to be used to escape characters, so if you intend to include literal backslashes, you must escape them as well by doubling them in this attribute. The string is formatted by MSI first, and the result is consumed as the JSON Path or Pointer.</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="Name" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>Name of JSON property to modify. If the value is empty, then the parent element specified in ElementPath is the target of any changes.</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="Value" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+            The value to set. May be one of the simple JSON types, or a JSON-formatted object. See the <html:a href="http://msdn.microsoft.com/library/aa368609(VS.85).aspx" target="_blank">Formatted topic</html:a> for information how to escape square brackets in the value.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="ValueType">
+        <xs:annotation>
+          <xs:documentation>The type of Value.</xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:NMTOKEN">
+            <xs:enumeration value="string">
+              <xs:annotation>
+                <xs:documentation>Value is a string.</xs:documentation>
+              </xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="number">
+              <xs:annotation>
+                <xs:documentation>Value is a numeric value.</xs:documentation>
+              </xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="bool">
+              <xs:annotation>
+                <xs:documentation>Value is a Boolean value, true or false.</xs:documentation>
+              </xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="object">
+              <xs:annotation>
+                <xs:documentation>Value is a JSON-encoded object.</xs:documentation>
+              </xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="null">
+              <xs:annotation>
+                <xs:documentation>Value is null.</xs:documentation>
+              </xs:annotation>
+            </xs:enumeration>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="Action" use="required">
+        <xs:annotation>
+          <xs:documentation>The type of modification to be made to the JSON file when the component is installed or uninstalled.</xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:NMTOKEN">
+            <xs:enumeration value="deleteValue">
+              <xs:annotation>
+                <xs:documentation>Deletes a value from the element specified in the ElementPath. If Name is specified, the property with that name is removed. If Name is not specified, the element specified in the ElementPath itself is deleted. The Value and ValueType attributes are ignored.</xs:documentation>
+              </xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="setValue">
+              <xs:annotation>
+                <xs:documentation>Sets a value in the element specified in the ElementPath. If Name is specified, a value with that name is set to the value specified in Value, or created if it does not yet exist. If Name is not specified, the value of the element specified in the ElementPath is set. Value and ValueType are required for this action.</xs:documentation>
+              </xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="addArrayValue">
+              <xs:annotation>
+                <xs:documentation>Adds a value to an array specified in the ElementPath. If Name is specified, a value with that name and is set or create., If Name is not specified, the value of the element specified in the ElementPath is set. The value is expected to be an array, and the value specified in Value is added as a new element of the array. Value and ValueType are required for this action.</xs:documentation>
+              </xs:annotation>
+            </xs:enumeration>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="On">
+        <xs:annotation>
+          <xs:documentation>Defines when the specified changes to the JSON file are to be done.</xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:NMTOKEN">
+            <xs:enumeration value="install">
+              <xs:annotation>
+                <xs:documentation>The changes are done during installation.</xs:documentation>
+              </xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="uninstall">
+              <xs:annotation>
+                <xs:documentation>The changes are done during uninstallation.</xs:documentation>
+              </xs:annotation>
+            </xs:enumeration>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="PreserveModifiedDate" type="YesNoType">
+        <xs:annotation>
+          <xs:documentation>Specifies whether or not the modification should preserve the modified date of the file.  Preserving the modified date will allow the file to be patched if no other modifications have been made.</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="Sequence" use="optional" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>Specifies the order in which the modification is to be attempted on the JSON file.  It is important to ensure that new elements are created before you attempt to modify them.</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="SelectionLanguage">
+        <xs:annotation>
+          <xs:documentation>
+            Specify whether the JSON object should use JSON Path (default) or JSON Pointer as the query language for ElementPath.
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:NMTOKEN">
+            <xs:enumeration value="JSONPath">
+              <xs:annotation>
+                <xs:documentation>Uses the JSON Path language that is similar to XPATH, but is not an official standard. Defined by <a href="http://goessner.net/articles/JsonPath/">Stefan Goessner in his article</a>.</xs:documentation>
+              </xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="JSONPointer">
+              <xs:annotation>
+                <xs:documentation>Uses the JSON Pointer language that is less flexible but easier than JSON Path, and has an official specification, found in <a href="https://tools.ietf.org/html/rfc6901">RFC 6901</a>.</xs:documentation>
+              </xs:annotation>
+            </xs:enumeration>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="VerifyPath" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The path to the element being modified. This is required for 'delete' actions. For 'set' actions, VerifyPath is used to decide if the element already exists. The semantic can be either JSON Path or JSON Pointer language, as specified in the SelectionLanguage attribute. Note that this is a formatted field and therefore, square brackets in the path must be escaped. In addition, JSON Path and Pointer allow backslashes to be used to escape characters, so if you intend to include literal backslashes, you must escape them as well by doubling them in this attribute. The string is formatted by MSI first, and the result is consumed as the JSON Path or Pointer.</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:simpleType name="YesNoType">
+    <xs:annotation>
+      <xs:documentation>Values of this type will either be "yes" or "no".</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:NMTOKEN">
+      <xs:enumeration value="no" />
+      <xs:enumeration value="yes" />
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>
