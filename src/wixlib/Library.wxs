@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-	<Fragment>
-		<!-- TODO: Put your code here. -->
-	</Fragment>
+  <Fragment Id="JsonConfig">
+    <CustomAction Id="RemoveFoldersEx" BinaryKey="jsonca.dll" DllEntry="RemoveFoldersEx" Execute="immediate" Return="ignore" />
+    <InstallExecuteSequence>
+      <Custom Action="RemoveFoldersEx" After="CostFinalize" />
+    </InstallExecuteSequence>
+  </Fragment>
+
+  <Fragment Id="JsonConfigCustomActions">
+    <Binary Id="jsonca.dll" SourceFile="jsonca.dll" />
+  </Fragment>
 </Wix>

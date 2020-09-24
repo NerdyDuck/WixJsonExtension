@@ -1,16 +1,169 @@
-﻿using System.Xml.Schema;
+﻿using System.Xml;
+using System.Xml.Schema;
 using Microsoft.Tools.WindowsInstallerXml;
 
 namespace NerdyDuck.Wix.JsonExtension
 {
     public sealed class JsonCompiler : CompilerExtension
     {
-        private XmlSchema _schema;
-
-        public JsonCompiler()
+	    public JsonCompiler()
         {
-            _schema = LoadXmlSchemaHelper(typeof(JsonCompiler).Assembly, "NerdyDuck.Wix.JsonExtension.Data.json.xsd");
+            Schema = LoadXmlSchemaHelper(typeof(JsonCompiler).Assembly, "NerdyDuck.Wix.JsonExtension.Data.json.xsd");
         }
-        public override XmlSchema Schema => _schema;
-    }
+
+        public override XmlSchema Schema
+        {
+	        get;
+        }
+
+        /// <summary>
+        /// Processes an element for the Compiler.
+        /// </summary>
+        /// <param name="sourceLineNumbers">Source line number for the parent element.</param>
+        /// <param name="parentElement">Parent element of element to process.</param>
+        /// <param name="element">Element to process.</param>
+        /// <param name="contextValues">Extra information about the context in which this element is being parsed.</param>
+        public override void ParseElement(SourceLineNumberCollection sourceLineNumbers, XmlElement parentElement, XmlElement element, params string[] contextValues)
+        {
+	        switch (parentElement.LocalName)
+	        {
+		        case "Component":
+			        string componentId = contextValues[0];
+			        string directoryId = contextValues[1];
+
+			        switch (element.LocalName)
+			        {
+				        case "RemoveFolderEx":
+					        ParseRemoveFolderExElement(element, componentId, directoryId);
+					        break;
+				        default:
+					        Core.UnexpectedElement(parentElement, element);
+					        break;
+			        }
+			        break;
+		        default:
+			        Core.UnexpectedElement(parentElement, element);
+			        break;
+	        }
+        }
+
+		/// <summary>
+		/// Parses a RemoveFolderEx element.
+		/// </summary>
+		/// <param name="node">Element to parse.</param>
+		/// <param name="componentId">Identifier of parent component.</param>
+		/// <param name="parentDirectory">Identifier of parent component's directory.</param>
+		private void ParseRemoveFolderExElement(XmlNode node, string componentId, string parentDirectory)
+		{
+			SourceLineNumberCollection sourceLineNumbers = Preprocessor.GetSourceLineNumbers(node);
+			string id = null;
+			string directory = null;
+			int on = CompilerCore.IntegerNotSet;
+			string property = null;
+			string dirProperty = parentDirectory; // assume the parent directory will be used as the "DirProperty" column.
+
+			foreach (XmlAttribute attrib in node.Attributes)
+			{
+				if (0 == attrib.NamespaceURI.Length || attrib.NamespaceURI == Schema.TargetNamespace)
+				{
+					switch (attrib.LocalName)
+					{
+						case "Id":
+							id = Core.GetAttributeIdentifierValue(sourceLineNumbers, attrib);
+							break;
+						case "Directory":
+							directory = Core.GetAttributeIdentifierValue(sourceLineNumbers, attrib);
+							Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "Directory", directory);
+							break;
+						case "On":
+							string onValue = Core.GetAttributeValue(sourceLineNumbers, attrib);
+							if (onValue.Length == 0)
+							{
+								on = CompilerCore.IllegalInteger;
+							}
+							else
+							{
+								switch (onValue)
+								{
+									case "install":
+										on = 1;
+										break;
+									case "uninstall":
+										on = 2;
+										break;
+									case "both":
+										on = 3;
+										break;
+									default:
+										Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name, "On", onValue, "install", "uninstall", "both"));
+										on = CompilerCore.IllegalInteger;
+										break;
+								}
+							}
+							break;
+						case "Property":
+							property = Core.GetAttributeValue(sourceLineNumbers, attrib);
+							break;
+						default:
+							Core.UnexpectedAttribute(sourceLineNumbers, attrib);
+							break;
+					}
+				}
+				else
+				{
+					Core.UnsupportedExtensionAttribute(sourceLineNumbers, attrib);
+				}
+			}
+
+			if (CompilerCore.IntegerNotSet == on)
+			{
+				Core.OnMessage(WixErrors.ExpectedAttribute(sourceLineNumbers, node.Name, "On"));
+				on = CompilerCore.IllegalInteger;
+			}
+
+			if (null != directory && null != property)
+			{
+				Core.OnMessage(WixErrors.IllegalAttributeWithOtherAttribute(sourceLineNumbers, node.Name, "Property", "Directory", directory));
+			}
+			else
+			{
+				if (null != directory)
+				{
+					dirProperty = directory;
+				}
+				else if (null != property)
+				{
+					dirProperty = property;
+				}
+			}
+
+			id ??= string.Concat("Remove", dirProperty);
+
+			foreach (XmlNode child in node.ChildNodes)
+			{
+				if (XmlNodeType.Element == child.NodeType)
+				{
+					if (child.NamespaceURI == Schema.TargetNamespace)
+					{
+						Core.UnexpectedElement(node, child);
+					}
+					else
+					{
+						Core.UnsupportedExtensionElement(node, child);
+					}
+				}
+			}
+
+			if (!Core.EncounteredError)
+			{
+				Row row = Core.CreateRow(sourceLineNumbers, "RemoveFoldersEx");
+				row[0] = id;
+				row[1] = componentId;
+				row[2] = dirProperty;
+				row[3] = on;
+
+				Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "RemoveFoldersEx");
+			}
+		}
+	}
 }
