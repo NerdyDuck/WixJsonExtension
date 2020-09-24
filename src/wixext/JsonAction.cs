@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace NerdyDuck.Wix.JsonExtension
+﻿namespace NerdyDuck.Wix.JsonExtension
 {
 	internal enum JsonAction
 	{

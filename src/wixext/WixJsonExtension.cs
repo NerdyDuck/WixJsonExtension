@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Reflection;
-using System.Text;
-using Microsoft.Tools.WindowsInstallerXml;
+﻿using Microsoft.Tools.WindowsInstallerXml;
 
 namespace NerdyDuck.Wix.JsonExtension
 {

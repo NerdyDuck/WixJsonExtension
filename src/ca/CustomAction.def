@@ -1,4 +1,4 @@
 LIBRARY "jsonca"
 
 EXPORTS
-	CustomAction1
+	InsertAssignJson

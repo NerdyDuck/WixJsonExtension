@@ -3,6 +3,7 @@
   <ItemGroup>
     <ClCompile Include="CustomAction.cpp" />
     <ClCompile Include="stdafx.cpp" />
+    <ClCompile Include="InsertAssignJson.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
