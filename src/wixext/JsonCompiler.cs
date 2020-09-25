@@ -33,8 +33,8 @@ namespace NerdyDuck.Wix.JsonExtension
 
 			        switch (element.LocalName)
 			        {
-				        case "RemoveFolderEx":
-					        ParseRemoveFolderExElement(element, componentId, directoryId);
+				        case "JsonConfig":
+					        ParseJsonConfigElement(element, componentId, directoryId);
 					        break;
 				        default:
 					        Core.UnexpectedElement(parentElement, element);
@@ -53,7 +53,7 @@ namespace NerdyDuck.Wix.JsonExtension
 		/// <param name="node">Element to parse.</param>
 		/// <param name="componentId">Identifier of parent component.</param>
 		/// <param name="parentDirectory">Identifier of parent component's directory.</param>
-		private void ParseRemoveFolderExElement(XmlNode node, string componentId, string parentDirectory)
+		private void ParseJsonConfigElement(XmlNode node, string componentId, string parentDirectory)
 		{
 			SourceLineNumberCollection sourceLineNumbers = Preprocessor.GetSourceLineNumbers(node);
 			string id = null;
@@ -62,56 +62,61 @@ namespace NerdyDuck.Wix.JsonExtension
 			string property = null;
 			string dirProperty = parentDirectory; // assume the parent directory will be used as the "DirProperty" column.
 
-			foreach (XmlAttribute attrib in node.Attributes)
+			if (node.Attributes != null)
 			{
-				if (0 == attrib.NamespaceURI.Length || attrib.NamespaceURI == Schema.TargetNamespace)
+				foreach (XmlAttribute attribute in node.Attributes)
 				{
-					switch (attrib.LocalName)
+					if (0 == attribute.NamespaceURI.Length || attribute.NamespaceURI == Schema.TargetNamespace)
 					{
-						case "Id":
-							id = Core.GetAttributeIdentifierValue(sourceLineNumbers, attrib);
-							break;
-						case "Directory":
-							directory = Core.GetAttributeIdentifierValue(sourceLineNumbers, attrib);
-							Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "Directory", directory);
-							break;
-						case "On":
-							string onValue = Core.GetAttributeValue(sourceLineNumbers, attrib);
-							if (onValue.Length == 0)
-							{
-								on = CompilerCore.IllegalInteger;
-							}
-							else
-							{
-								switch (onValue)
+						switch (attribute.LocalName)
+						{
+							case "Id":
+								id = Core.GetAttributeIdentifierValue(sourceLineNumbers, attribute);
+								break;
+							case "File":
+								directory = Core.GetAttributeIdentifierValue(sourceLineNumbers, attribute);
+								Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "File", directory);
+								break;
+							case "On":
+								string onValue = Core.GetAttributeValue(sourceLineNumbers, attribute);
+								if (onValue.Length == 0)
 								{
-									case "install":
-										on = 1;
-										break;
-									case "uninstall":
-										on = 2;
-										break;
-									case "both":
-										on = 3;
-										break;
-									default:
-										Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name, "On", onValue, "install", "uninstall", "both"));
-										on = CompilerCore.IllegalInteger;
-										break;
+									@on = CompilerCore.IllegalInteger;
 								}
-							}
-							break;
-						case "Property":
-							property = Core.GetAttributeValue(sourceLineNumbers, attrib);
-							break;
-						default:
-							Core.UnexpectedAttribute(sourceLineNumbers, attrib);
-							break;
+								else
+								{
+									switch (onValue)
+									{
+										case "install":
+											@on = 1;
+											break;
+										case "uninstall":
+											@on = 2;
+											break;
+										case "both":
+											@on = 3;
+											break;
+										default:
+											Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name,
+												"On", onValue, "install", "uninstall", "both"));
+											@on = CompilerCore.IllegalInteger;
+											break;
+									}
+								}
+
+								break;
+							case "Property":
+								property = Core.GetAttributeValue(sourceLineNumbers, attribute);
+								break;
+							default:
+								Core.UnexpectedAttribute(sourceLineNumbers, attribute);
+								break;
+						}
 					}
-				}
-				else
-				{
-					Core.UnsupportedExtensionAttribute(sourceLineNumbers, attrib);
+					else
+					{
+						Core.UnsupportedExtensionAttribute(sourceLineNumbers, attribute);
+					}
 				}
 			}
 

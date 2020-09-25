@@ -13,11 +13,13 @@ namespace NerdyDuck.Wix.JsonExtension
 
 	   public override DecompilerExtension DecompilerExtension => _decompilerExtension ??= new JsonDecompiler();
 
-	   public override TableDefinitionCollection TableDefinitions => _tableDefinitions ??= LoadTableDefinitionHelper(typeof(WixJsonExtension).Assembly,
-				  "NerdyDuck.Wix.JsonExtension.Data.tables.xml");
+	   public override TableDefinitionCollection TableDefinitions => _tableDefinitions ??= LoadTableDefinitionHelper(
+		   typeof(WixJsonExtension).Assembly,
+		   "NerdyDuck.Wix.JsonExtension.Data.tables.xml");
 
-	   public override Library GetLibrary(TableDefinitionCollection tableDefinitions) => _library ??= LoadLibraryHelper(typeof(WixJsonExtension).Assembly,
-			   "NerdyDuck.Wix.JsonExtension.Data.json.wixlib", tableDefinitions);
+	   public override Library GetLibrary(TableDefinitionCollection tableDefinitions) => _library ??= LoadLibraryHelper(
+		   typeof(WixJsonExtension).Assembly,
+		   "NerdyDuck.Wix.JsonExtension.Data.json.wixlib", tableDefinitions);
 
 	   public override string DefaultCulture => "en-us";
     }

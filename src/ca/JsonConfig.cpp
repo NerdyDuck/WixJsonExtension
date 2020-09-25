@@ -18,11 +18,11 @@ static HRESULT RecursePath(
 );
 
 
-extern "C" UINT WINAPI InsertAssignJson(
+extern "C" UINT WINAPI JsonConfig(
     __in MSIHANDLE hInstall
 )
 {
-    //AssertSz(FALSE, "debug InsertAssignJson");
+    //AssertSz(FALSE, "debug JsonConfig");
 
     HRESULT hr = S_OK;
     PMSIHANDLE hView;
@@ -36,19 +36,19 @@ extern "C" UINT WINAPI InsertAssignJson(
     MSIHANDLE hTable = NULL;
     MSIHANDLE hColumns = NULL;
 
-    hr = WcaInitialize(hInstall, "InsertAssignJson");
+    hr = WcaInitialize(hInstall, "JsonConfig");
     ExitOnFailure(hr, "Failed to initialize InsertAssignJson.");
 
     // anything to do?
-    if (S_OK != WcaTableExists(L"InsertAssignJson"))
+    if (S_OK != WcaTableExists(L"JsonConfig"))
     {
-        WcaLog(LOGMSG_STANDARD, "RemoveFoldersEx table doesn't exist, so there are no folders to remove.");
+        WcaLog(LOGMSG_STANDARD, "JsonConfig table doesn't exist, so there are no folders to remove.");
         ExitFunction();
     }
 
     // query and loop through all the remove folders exceptions
     hr = WcaOpenExecuteView(vcsInsertAssignJsonQuery, &hView);
-    ExitOnFailure(hr, "Failed to open view on RemoveFoldersEx table");
+    ExitOnFailure(hr, "Failed to open view on JsonConfig table");
 
     while (S_OK == (hr = WcaFetchRecord(hView, &hRec)))
     {
@@ -76,7 +76,7 @@ extern "C" UINT WINAPI InsertAssignJson(
     {
         hr = S_OK;
     }
-    ExitOnFailure(hr, "Failure occured while processing RemoveFoldersEx table");
+    ExitOnFailure(hr, "Failure occured while processing JsonConfig table");
 
 LExit:
     if (hColumns)

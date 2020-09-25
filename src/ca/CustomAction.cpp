@@ -2,21 +2,24 @@
 
 // DllMain - Initialize and cleanup WiX custom action utils.
 extern "C" BOOL WINAPI DllMain(
-	__in HINSTANCE hInst,
-	__in ULONG ulReason,
-	__in LPVOID
-	)
+    __in HINSTANCE hInstance,
+    __in ULONG ulReason,
+    __in LPVOID lpReserved
+)
 {
-	switch(ulReason)
-	{
-	case DLL_PROCESS_ATTACH:
-		WcaGlobalInitialize(hInst);
-		break;
+    UNREFERENCED_PARAMETER(lpReserved);
 
-	case DLL_PROCESS_DETACH:
-		WcaGlobalFinalize();
-		break;
-	}
+    switch (ulReason)
+    {
+    case DLL_PROCESS_ATTACH:
+        ::DisableThreadLibraryCalls(hInstance);
+        WcaGlobalInitialize(hInstance);
+        break;
 
-	return TRUE;
+    case DLL_PROCESS_DETACH:
+        WcaGlobalFinalize();
+        break;
+    }
+
+    return TRUE;
 }
