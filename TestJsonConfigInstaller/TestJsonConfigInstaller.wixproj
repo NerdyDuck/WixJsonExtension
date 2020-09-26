@@ -26,7 +26,7 @@
   </ItemGroup>
   <ItemGroup>
     <WixExtension Include="WixJsonExtension">
-      <HintPath>..\src\wixext\bin\$(Configuration)\net20\WixJsonExtension.dll</HintPath>
+      <HintPath>..\src\wixext\bin\$(Configuration)\WixJsonExtension.dll</HintPath>
       <Name>WixJsonExtension</Name>
     </WixExtension>
     </ItemGroup>

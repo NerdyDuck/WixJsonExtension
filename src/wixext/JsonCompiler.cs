@@ -1,4 +1,5 @@
-﻿using System.Xml;
+﻿using System.Reflection;
+using System.Xml;
 using System.Xml.Schema;
 using Microsoft.Tools.WindowsInstallerXml;
 
@@ -8,7 +9,7 @@ namespace NerdyDuck.Wix.JsonExtension
     {
 	    public JsonCompiler()
         {
-            Schema = LoadXmlSchemaHelper(typeof(JsonCompiler).Assembly, "NerdyDuck.Wix.JsonExtension.Data.json.xsd");
+            Schema = LoadXmlSchemaHelper(Assembly.GetExecutingAssembly(), "NerdyDuck.Wix.JsonExtension.Xsd.json.xsd");
         }
 
         public override XmlSchema Schema
