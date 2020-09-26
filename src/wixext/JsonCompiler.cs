@@ -60,7 +60,7 @@ namespace NerdyDuck.Wix.JsonExtension
 			string id = null;
 			string directory = null;
 			int on = CompilerCore.IntegerNotSet;
-			string property = null;
+			string PreserveModifiedDate = null;
 			string dirProperty = parentDirectory; // assume the parent directory will be used as the "DirProperty" column.
 
 			if (node.Attributes != null)
@@ -71,14 +71,24 @@ namespace NerdyDuck.Wix.JsonExtension
 					{
 						switch (attribute.LocalName)
 						{
-							case "Id":
+							case "Id": // Identifier for json file modification
 								id = Core.GetAttributeIdentifierValue(sourceLineNumbers, attribute);
 								break;
-							case "File":
+							case "File": // Path of the .json file to modify.
 								directory = Core.GetAttributeIdentifierValue(sourceLineNumbers, attribute);
 								Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "File", directory);
 								break;
-							case "On":
+							case "ElementPath": // The path to the parent element of the element to be modified. The semantic can be either JSON Path or JSON Pointer language, as specified in the SelectionLanguage attribute. Note that this is a formatted field and therefore, square brackets in the path must be escaped. In addition, JSON Path and Pointer allow backslashes to be used to escape characters, so if you intend to include literal backslashes, you must escape them as well by doubling them in this attribute. The string is formatted by MSI first, and the result is consumed as the JSON Path or Pointer.
+								break;
+							case "Name": // Name of JSON property to modify. If the value is empty, then the parent element specified in ElementPath is the target of any changes.
+								break;
+							case "Value": // The value to set. May be one of the simple JSON types, or a JSON-formatted object. See the <html:a href="http://msdn.microsoft.com/library/aa368609(VS.85).aspx" target="_blank">Formatted topic</html:a> for information how to escape square brackets in the value.
+								break;
+							case "ValueType": // The type of Value.
+								break;
+							case "Action": // The type of modification to be made to the JSON file when the component is installed or uninstalled.
+								break;
+							case "On": // Defines when the specified changes to the JSON file are to be done.
 								string onValue = Core.GetAttributeValue(sourceLineNumbers, attribute);
 								if (onValue.Length == 0)
 								{
@@ -106,8 +116,14 @@ namespace NerdyDuck.Wix.JsonExtension
 								}
 
 								break;
-							case "Property":
-								property = Core.GetAttributeValue(sourceLineNumbers, attribute);
+							case "PreserveModifiedDate": // Specifies whether or not the modification should preserve the modified date of the file.  Preserving the modified date will allow the file to be patched if no other modifications have been made.
+								PreserveModifiedDate = Core.GetAttributeValue(sourceLineNumbers, attribute);
+								break;
+							case "Sequence": // Specifies the order in which the modification is to be attempted on the JSON file.  It is important to ensure that new elements are created before you attempt to modify them.
+								break;
+							case "SelectionLanguage": // Specify whether the JSON object should use JSON Path (default) or JSON Pointer as the query language for ElementPath.
+								break;
+							case "VerifyPath": // The path to the element being modified. This is required for 'delete' actions. For 'set' actions, VerifyPath is used to decide if the element already exists. The semantic can be either JSON Path or JSON Pointer language, as specified in the SelectionLanguage attribute. Note that this is a formatted field and therefore, square brackets in the path must be escaped. In addition, JSON Path and Pointer allow backslashes to be used to escape characters, so if you intend to include literal backslashes, you must escape them as well by doubling them in this attribute. The string is formatted by MSI first, and the result is consumed as the JSON Path or Pointer.
 								break;
 							default:
 								Core.UnexpectedAttribute(sourceLineNumbers, attribute);
@@ -127,7 +143,7 @@ namespace NerdyDuck.Wix.JsonExtension
 				on = CompilerCore.IllegalInteger;
 			}
 
-			if (null != directory && null != property)
+			if (null != directory && null != PreserveModifiedDate)
 			{
 				Core.OnMessage(WixErrors.IllegalAttributeWithOtherAttribute(sourceLineNumbers, node.Name, "Property", "Directory", directory));
 			}
@@ -137,9 +153,9 @@ namespace NerdyDuck.Wix.JsonExtension
 				{
 					dirProperty = directory;
 				}
-				else if (null != property)
+				else if (null != PreserveModifiedDate)
 				{
-					dirProperty = property;
+					dirProperty = PreserveModifiedDate;
 				}
 			}
 
