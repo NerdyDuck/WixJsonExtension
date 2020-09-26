@@ -3,7 +3,7 @@
 
 using namespace jsoncons;
 
-LPCWSTR vcsInsertAssignJsonQuery = L"SELECT `JsonConfig`, `File`, `ElementPath`, `VerifyPath`, `Name`, `Value`, `ValueType`, `Flags`, `Component_`, `Sequence` FROM `JsonConfig`";
+LPCWSTR vcsJsonConfigQuery = L"SELECT `JsonConfig`, `File`, `ElementPath`, `VerifyPath`, `Name`, `Value`, `ValueType`, `Flags`, `Component_`, `Sequence` FROM `JsonConfig`";
 enum eRemoveFoldersExQuery { rfqId = 1, rfqComponent, rfqProperty, feqMode };
 
 static HRESULT RecursePath(
@@ -47,7 +47,7 @@ extern "C" UINT WINAPI JsonConfig(
     }
 
     // query and loop through all the remove folders exceptions
-    hr = WcaOpenExecuteView(vcsInsertAssignJsonQuery, &hView);
+    hr = WcaOpenExecuteView(vcsJsonConfigQuery, &hView);
     ExitOnFailure(hr, "Failed to open view on JsonConfig table");
 
     while (S_OK == (hr = WcaFetchRecord(hView, &hRec)))

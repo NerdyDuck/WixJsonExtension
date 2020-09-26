@@ -25,14 +25,16 @@
     <Content Include="appsettings.json" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\src\wixext\WixJsonExtension.csproj">
+    <WixExtension Include="WixJsonExtension">
+      <HintPath>..\src\wixext\bin\$(Configuration)\net20\WixJsonExtension.dll</HintPath>
       <Name>WixJsonExtension</Name>
-      <Project>{0f526617-4185-404f-bf64-d0ba1ffd678f}</Project>
-      <Private>True</Private>
-      <DoNotHarvest>True</DoNotHarvest>
-      <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
-      <RefTargetDir>INSTALLFOLDER</RefTargetDir>
-    </ProjectReference>
+    </WixExtension>
+    </ItemGroup>
+  <ItemGroup>
+    <WixExtension Include="WixUtilExtension">
+      <HintPath>$(WixExtDir)\WixUtilExtension.dll</HintPath>
+      <Name>WixUtilExtension</Name>
+    </WixExtension>
   </ItemGroup>
   <Import Project="$(WixTargetsPath)" Condition=" '$(WixTargetsPath)' != '' " />
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\WiX\v3.x\Wix.targets" Condition=" '$(WixTargetsPath)' == '' AND Exists('$(MSBuildExtensionsPath32)\Microsoft\WiX\v3.x\Wix.targets') " />

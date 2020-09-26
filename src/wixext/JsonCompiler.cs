@@ -33,7 +33,7 @@ namespace NerdyDuck.Wix.JsonExtension
 
 			        switch (element.LocalName)
 			        {
-				        case "JsonConfig":
+				        case "JsonFile":
 					        ParseJsonConfigElement(element, componentId, directoryId);
 					        break;
 				        default:
@@ -161,13 +161,13 @@ namespace NerdyDuck.Wix.JsonExtension
 
 			if (!Core.EncounteredError)
 			{
-				Row row = Core.CreateRow(sourceLineNumbers, "RemoveFoldersEx");
+				Row row = Core.CreateRow(sourceLineNumbers, "JsonConfig");
 				row[0] = id;
 				row[1] = componentId;
 				row[2] = dirProperty;
 				row[3] = on;
 
-				Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "RemoveFoldersEx");
+				Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "JsonConfig");
 			}
 		}
 	}
