@@ -11,7 +11,6 @@
     <Media Id="1" Cabinet="cab1.cab" EmbedCab="yes"/>
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
-    <MediaTemplate />
 
     <Feature Id="ProductFeature" Title="TestJsonConfigInstaller" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
@@ -30,7 +29,7 @@
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
       <Component Id="ProductComponent" Guid="{51CDDB12-E903-436C-9371-2E4E93D3B109}">
         <File Id="JsonConfig" Source="appsettings.json"/>
-        <Json:JsonFile Id="appSettings" File="JsonConfig" ElementPath="$.Username" Value="BensUsername" Action="setValue" On ="install" SelectionLanguage="JSONPath" />
+        <Json:JsonFile Id="appSettings" File="JsonConfig" ElementPath="$.Username" Value="BensUsername" ValueType="string" Action="setValue" On ="install" SelectionLanguage="JSONPath" />
       </Component>
     </ComponentGroup>
   </Fragment>

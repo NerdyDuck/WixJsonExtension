@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  <Fragment Id="JsonConfig">
-    <CustomAction Id="JsonConfig" BinaryKey="jsonca.dll" DllEntry="JsonConfig" Execute="immediate" Return="ignore" />
+  <Fragment Id="JsonFile">
+    <CustomAction Id="JsonFile" BinaryKey="jsonca.dll" DllEntry="JsonFile" Execute="immediate" Return="ignore" />
     <InstallExecuteSequence>
-      <Custom Action="JsonConfig" After="CostFinalize" />
+      <Custom Action="JsonFile" After="CostFinalize" />
     </InstallExecuteSequence>
   </Fragment>
 
-  <Fragment Id="JsonConfigCustomActions">
+  <Fragment Id="JsonFileCustomActions">
     <Binary Id="jsonca.dll" SourceFile="jsonca.dll" />
   </Fragment>
 </Wix>

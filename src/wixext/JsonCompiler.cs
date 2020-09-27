@@ -68,7 +68,7 @@ namespace NerdyDuck.Wix.JsonExtension
 			int action = CompilerCore.IntegerNotSet;
 			int sequence = CompilerCore.IntegerNotSet;
 			int selectionLanguage = CompilerCore.IntegerNotSet;
-			int verifyPath = CompilerCore.IntegerNotSet;
+			string verifyPath = null;
 
 			if (node.Attributes != null)
 			{
@@ -103,26 +103,25 @@ namespace NerdyDuck.Wix.JsonExtension
 								{
 									switch (valueTypeStr)
 									{
+										case "null":
+											valueType = 0;
+											break;
 										case "string":
 											valueType = 1;
 											break;
 										case "number":
-											valueType = 2;
-											break;
-										case "bool":
 											valueType = 3;
 											break;
-										case "object":
+										case "bool":
 											valueType = 4;
 											break;
-										case "null":
+										case "object":
 											valueType = 5;
 											break;
 										default:
 											Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name,
 												"ValueType", valueTypeStr, "string", "number", "bool", "object",
 												"null"));
-											valueType = CompilerCore.IllegalInteger;
 											break;
 									}
 								}
@@ -238,28 +237,7 @@ namespace NerdyDuck.Wix.JsonExtension
 								}
 								break;
 							case "VerifyPath": // The path to the element being modified. This is required for 'delete' actions. For 'set' actions, VerifyPath is used to decide if the element already exists. The semantic can be either JSON Path or JSON Pointer language, as specified in the SelectionLanguage attribute. Note that this is a formatted field and therefore, square brackets in the path must be escaped. In addition, JSON Path and Pointer allow backslashes to be used to escape characters, so if you intend to include literal backslashes, you must escape them as well by doubling them in this attribute. The string is formatted by MSI first, and the result is consumed as the JSON Path or Pointer.
-								string verifyPathValue = Core.GetAttributeValue(sourceLineNumbers, attribute);
-								if (verifyPathValue.Length == 0)
-								{
-									verifyPath = CompilerCore.IllegalInteger;
-								}
-								else
-								{
-									switch (verifyPathValue)
-									{
-										case "yes":
-											verifyPath = 1;
-											break;
-										case "no":
-											verifyPath = 2;
-											break;
-										default:
-											Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name,
-												"VerifyPath", verifyPathValue, "yes", "no"));
-											verifyPath = CompilerCore.IllegalInteger;
-											break;
-									}
-								}
+								verifyPath = Core.GetAttributeValue(sourceLineNumbers, attribute);
 								break;
 							default:
 								Core.UnexpectedAttribute(sourceLineNumbers, attribute);
@@ -271,6 +249,12 @@ namespace NerdyDuck.Wix.JsonExtension
 						Core.UnsupportedExtensionAttribute(sourceLineNumbers, attribute);
 					}
 				}
+			}
+
+			if (CompilerCore.IntegerNotSet == valueType)
+			{
+				Core.OnMessage(WixErrors.ExpectedAttribute(sourceLineNumbers, node.Name, "ValueType"));
+				valueType = CompilerCore.IllegalInteger;
 			}
 
 			if (CompilerCore.IntegerNotSet == on)
