@@ -1,5 +1,4 @@
-﻿using System;
-using System.Reflection;
+﻿using System.Reflection;
 using System.Xml;
 using System.Xml.Schema;
 using Microsoft.Tools.WindowsInstallerXml;
@@ -36,7 +35,7 @@ namespace NerdyDuck.Wix.JsonExtension
 			        switch (element.LocalName)
 			        {
 				        case "JsonFile":
-					        ParseJsonConfigElement(element, componentId, directoryId);
+					        ParseJsonFileElement(element, componentId, directoryId);
 					        break;
 				        default:
 					        Core.UnexpectedElement(parentElement, element);
@@ -55,15 +54,21 @@ namespace NerdyDuck.Wix.JsonExtension
 		/// <param name="node">Element to parse.</param>
 		/// <param name="componentId">Identifier of parent component.</param>
 		/// <param name="parentDirectory">Identifier of parent component's directory.</param>
-		private void ParseJsonConfigElement(XmlNode node, string componentId, string parentDirectory)
+		private void ParseJsonFileElement(XmlNode node, string componentId, string parentDirectory)
 		{
 			SourceLineNumberCollection sourceLineNumbers = Preprocessor.GetSourceLineNumbers(node);
 			string id = null;
 			string file = null;
+			string elementPath = null;
+			string name = null;
+			string value = null;
+			int valueType = CompilerCore.IntegerNotSet;
 			int on = CompilerCore.IntegerNotSet;
 			int action = CompilerCore.IntegerNotSet;
 			int preserveModifiedDate = CompilerCore.IntegerNotSet;
 			int sequence = CompilerCore.IntegerNotSet;
+			int selectionLanguage = CompilerCore.IntegerNotSet;
+			int verifyPath = CompilerCore.IntegerNotSet;
 
 			if (node.Attributes != null)
 			{
@@ -77,15 +82,50 @@ namespace NerdyDuck.Wix.JsonExtension
 								id = Core.GetAttributeIdentifierValue(sourceLineNumbers, attribute);
 								break;
 							case "File": // Path of the .json file to modify.
-								file = Core.GetAttributeIdentifierValue(sourceLineNumbers, attribute);
+								file = Core.GetAttributeValue(sourceLineNumbers, attribute);
 								break;
 							case "ElementPath": // The path to the parent element of the element to be modified. The semantic can be either JSON Path or JSON Pointer language, as specified in the SelectionLanguage attribute. Note that this is a formatted field and therefore, square brackets in the path must be escaped. In addition, JSON Path and Pointer allow backslashes to be used to escape characters, so if you intend to include literal backslashes, you must escape them as well by doubling them in this attribute. The string is formatted by MSI first, and the result is consumed as the JSON Path or Pointer.
+								elementPath = Core.GetAttributeValue(sourceLineNumbers, attribute);
 								break;
 							case "Name": // Name of JSON property to modify. If the value is empty, then the parent element specified in ElementPath is the target of any changes.
+								name = Core.GetAttributeValue(sourceLineNumbers, attribute);
 								break;
 							case "Value": // The value to set. May be one of the simple JSON types, or a JSON-formatted object. See the <html:a href="http://msdn.microsoft.com/library/aa368609(VS.85).aspx" target="_blank">Formatted topic</html:a> for information how to escape square brackets in the value.
+								value = Core.GetAttributeValue(sourceLineNumbers, attribute);
 								break;
 							case "ValueType": // The type of Value.
+								string valueTypeStr = Core.GetAttributeValue(sourceLineNumbers, attribute);
+								if (valueTypeStr.Length == 0)
+								{
+									valueType = CompilerCore.IllegalInteger;
+								}
+								else
+								{
+									switch (valueTypeStr)
+									{
+										case "string":
+											valueType = 1;
+											break;
+										case "number":
+											valueType = 2;
+											break;
+										case "bool":
+											valueType = 3;
+											break;
+										case "object":
+											valueType = 4;
+											break;
+										case "null":
+											valueType = 5;
+											break;
+										default:
+											Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name,
+												"ValueType", valueTypeStr, "string", "number", "bool", "object",
+												"null"));
+											valueType = CompilerCore.IllegalInteger;
+											break;
+									}
+								}
 								break;
 							case "Action": // The type of modification to be made to the JSON file when the component is installed or uninstalled.
 								string actionValue = Core.GetAttributeValue(sourceLineNumbers, attribute);
@@ -172,8 +212,52 @@ namespace NerdyDuck.Wix.JsonExtension
 								int.TryParse(Core.GetAttributeValue(sourceLineNumbers, attribute), out sequence);
 								break;
 							case "SelectionLanguage": // Specify whether the JSON object should use JSON Path (default) or JSON Pointer as the query language for ElementPath.
+								string selectionLanguageValue = Core.GetAttributeValue(sourceLineNumbers, attribute);
+								if (selectionLanguageValue.Length == 0)
+								{
+									selectionLanguage = CompilerCore.IllegalInteger;
+								}
+								else
+								{
+									switch (selectionLanguageValue)
+									{
+										case "JSONPath":
+											selectionLanguage = 1;
+											break;
+										case "JSONPointer":
+											selectionLanguage = 2;
+											break;
+										default:
+											Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name,
+												"SelectionLanguage", selectionLanguageValue, "JSONPath", "JSONPointer"));
+											selectionLanguage = CompilerCore.IllegalInteger;
+											break;
+									}
+								}
 								break;
 							case "VerifyPath": // The path to the element being modified. This is required for 'delete' actions. For 'set' actions, VerifyPath is used to decide if the element already exists. The semantic can be either JSON Path or JSON Pointer language, as specified in the SelectionLanguage attribute. Note that this is a formatted field and therefore, square brackets in the path must be escaped. In addition, JSON Path and Pointer allow backslashes to be used to escape characters, so if you intend to include literal backslashes, you must escape them as well by doubling them in this attribute. The string is formatted by MSI first, and the result is consumed as the JSON Path or Pointer.
+								string verifyPathValue = Core.GetAttributeValue(sourceLineNumbers, attribute);
+								if (verifyPathValue.Length == 0)
+								{
+									verifyPath = CompilerCore.IllegalInteger;
+								}
+								else
+								{
+									switch (verifyPathValue)
+									{
+										case "yes":
+											verifyPath = 1;
+											break;
+										case "no":
+											verifyPath = 2;
+											break;
+										default:
+											Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name,
+												"VerifyPath", verifyPathValue, "yes", "no"));
+											verifyPath = CompilerCore.IllegalInteger;
+											break;
+									}
+								}
 								break;
 							default:
 								Core.UnexpectedAttribute(sourceLineNumbers, attribute);
@@ -210,21 +294,21 @@ namespace NerdyDuck.Wix.JsonExtension
 
 			if (!Core.EncounteredError)
 			{
-				Row row = Core.CreateRow(sourceLineNumbers, "JsonConfig");
+				Row row = Core.CreateRow(sourceLineNumbers, "JsonFile");
 				row[0] = id;
 				row[1] = file;
-				row[2] = 0; //elementpath
-				row[3] = 0; //name
-				row[4] = 0; //value
-				row[5] = 0; //valuetype
+				row[2] = elementPath; 
+				row[3] = name; 
+				row[4] = value; 
+				row[5] = valueType; 
 				row[6] = action;
 				row[7] = on;
 				row[8] = preserveModifiedDate;
-				row[9] = sequence; //sequence
-				row[9] = 0; //selectionLanguage
-				row[9] = 0; //verifyPath
+				row[9] = sequence; 
+				row[9] = selectionLanguage;
+				row[9] = verifyPath;
 
-				Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "JsonConfig");
+				Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "JsonFile");
 			}
 		}
 	}
