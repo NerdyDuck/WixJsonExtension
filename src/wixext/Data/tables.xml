@@ -3,8 +3,8 @@
 
 
 <tableDefinitions xmlns="http://schemas.microsoft.com/wix/2006/tables">
-    <tableDefinition name="JsonConfig" createSymbols="yes">
-        <columnDefinition name="JsonConfig" type="string" length="72" primaryKey="yes" modularize="column" category="identifier" description="Primary key, non-localized token."/>
+    <tableDefinition name="JsonFile" createSymbols="yes">
+        <columnDefinition name="JsonFile" type="string" length="255" primaryKey="yes" modularize="column" category="identifier" description="Primary key, non-localized token."/>
         <columnDefinition name="File" type="localized" length="255" modularize="property" category="formatted" description="Path of the .json file to modify."/>
         <columnDefinition name="ElementPath" type="localized" length="0" modularize="property" category="formatted" description=">The path to the parent element of the element to be modified. Either JSON Path or JSON Pointer semantics."/>
         <columnDefinition name="VerifyPath" type="localized" length="0" modularize="property" nullable="yes" category="formatted" description="The JSON Path query run from ElementPath to verify whether a repair is necessary. Also used to uninstall."/>

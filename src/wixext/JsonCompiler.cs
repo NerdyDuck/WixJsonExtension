@@ -64,8 +64,8 @@ namespace NerdyDuck.Wix.JsonExtension
 			string value = null;
 			int valueType = CompilerCore.IntegerNotSet;
 			int on = CompilerCore.IntegerNotSet;
+			int flags = 0;
 			int action = CompilerCore.IntegerNotSet;
-			int preserveModifiedDate = CompilerCore.IntegerNotSet;
 			int sequence = CompilerCore.IntegerNotSet;
 			int selectionLanguage = CompilerCore.IntegerNotSet;
 			int verifyPath = CompilerCore.IntegerNotSet;
@@ -138,12 +138,15 @@ namespace NerdyDuck.Wix.JsonExtension
 									switch (actionValue)
 									{
 										case "deleteValue":
+											flags |= 1;
 											action = 1;
 											break;
 										case "setValue":
+											flags |= 2;
 											action = 2;
 											break;
 										case "addArrayValue":
+											flags |= 4;
 											action = 3;
 											break;
 										default:
@@ -169,6 +172,7 @@ namespace NerdyDuck.Wix.JsonExtension
 											@on = 1;
 											break;
 										case "uninstall":
+											flags |= 8;
 											@on = 2;
 											break;
 										case "both":
@@ -187,22 +191,19 @@ namespace NerdyDuck.Wix.JsonExtension
 								string preserveModifiedDateValue = Core.GetAttributeValue(sourceLineNumbers, attribute);
 								if (preserveModifiedDateValue.Length == 0)
 								{
-									preserveModifiedDate = CompilerCore.IllegalInteger;
 								}
 								else
 								{
 									switch (preserveModifiedDateValue)
 									{
 										case "yes":
-											preserveModifiedDate = 1;
+											flags |= 16;
 											break;
 										case "no":
-											preserveModifiedDate = 2;
 											break;
 										default:
 											Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name,
 												"PreserveModifiedDate", preserveModifiedDateValue, "yes", "no"));
-											preserveModifiedDate = CompilerCore.IllegalInteger;
 											break;
 									}
 								}
@@ -225,6 +226,7 @@ namespace NerdyDuck.Wix.JsonExtension
 											selectionLanguage = 1;
 											break;
 										case "JSONPointer":
+											flags |= 32;
 											selectionLanguage = 2;
 											break;
 										default:
@@ -277,6 +279,18 @@ namespace NerdyDuck.Wix.JsonExtension
 				on = CompilerCore.IllegalInteger;
 			}
 
+			if (CompilerCore.IntegerNotSet == action)
+			{
+				Core.OnMessage(WixErrors.ExpectedAttribute(sourceLineNumbers, node.Name, "Action"));
+				action = CompilerCore.IllegalInteger;
+			}
+
+			if (CompilerCore.IntegerNotSet == selectionLanguage)
+			{
+				Core.OnMessage(WixErrors.ExpectedAttribute(sourceLineNumbers, node.Name, "SelectionLanguage"));
+				selectionLanguage = CompilerCore.IllegalInteger;
+			}
+
 			foreach (XmlNode child in node.ChildNodes)
 			{
 				if (XmlNodeType.Element == child.NodeType)
@@ -298,15 +312,13 @@ namespace NerdyDuck.Wix.JsonExtension
 				row[0] = id;
 				row[1] = file;
 				row[2] = elementPath; 
-				row[3] = name; 
-				row[4] = value; 
-				row[5] = valueType; 
-				row[6] = action;
-				row[7] = on;
-				row[8] = preserveModifiedDate;
+				row[3] = verifyPath; 
+				row[4] = name; 
+				row[5] = value; 
+				row[6] = valueType;
+				row[7] = flags;
+				row[8] = componentId;
 				row[9] = sequence; 
-				row[9] = selectionLanguage;
-				row[9] = verifyPath;
 
 				Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "JsonFile");
 			}
