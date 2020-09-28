@@ -4,7 +4,7 @@
 using namespace jsoncons;
 
 LPCWSTR vcsJsonFileQuery = L"SELECT `JsonFile`, `File`, `ElementPath`, `VerifyPath`, `Name`, `Value`, `ValueType`, `Flags`, `Component_`, `Sequence` FROM `JsonFile`";
-enum eRemoveFoldersExQuery { rfqId = 1, rfqComponent, rfqProperty, feqMode };
+enum eJsonFileQuery { rfqId = 1, rfqComponent, rfqProperty, feqMode };
 
 static HRESULT RecursePath(
     __in_z LPCWSTR wzPath,
@@ -37,7 +37,7 @@ extern "C" UINT WINAPI JsonFile(
     MSIHANDLE hColumns = NULL;
 
     hr = WcaInitialize(hInstall, "JsonFile");
-    ExitOnFailure(hr, "Failed to initialize InsertAssignJson.");
+    ExitOnFailure(hr, "Failed to initialize JsonFile.");
 
     // anything to do?
     if (S_OK != WcaTableExists(L"JsonFile"))
@@ -152,10 +152,10 @@ static HRESULT RecursePath(
 
     // Add the row to remove any files and another row to remove the folder.
     hr = WcaAddTempRecord(phTable, phColumns, L"RemoveFile", NULL, 1, 5, L"RfxFiles", wzComponent, L"*.*", sczDirProperty, iMode);
-    ExitOnFailure2(hr, "Failed to add row to remove all files for RemoveFolderEx row: %S under path:", wzId, wzPath);
+    ExitOnFailure2(hr, "Failed to add row to remove all files for JsonFile row: %S under path:", wzId, wzPath);
 
     hr = WcaAddTempRecord(phTable, phColumns, L"RemoveFile", NULL, 1, 5, L"RfxFolder", wzComponent, NULL, sczDirProperty, iMode);
-    ExitOnFailure2(hr, "Failed to add row to remove folder for RemoveFolderEx row: %S under path: %S", wzId, wzPath);
+    ExitOnFailure2(hr, "Failed to add row to remove folder for JsonFile row: %S under path: %S", wzId, wzPath);
 
 LExit:
     if (INVALID_HANDLE_VALUE != hFind)

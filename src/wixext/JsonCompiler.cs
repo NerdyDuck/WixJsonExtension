@@ -94,147 +94,22 @@ namespace NerdyDuck.Wix.JsonExtension
 								value = Core.GetAttributeValue(sourceLineNumbers, attribute);
 								break;
 							case "ValueType": // The type of Value.
-								string valueTypeStr = Core.GetAttributeValue(sourceLineNumbers, attribute);
-								if (valueTypeStr.Length == 0)
-								{
-									valueType = CompilerCore.IllegalInteger;
-								}
-								else
-								{
-									switch (valueTypeStr)
-									{
-										case "null":
-											valueType = 0;
-											break;
-										case "string":
-											valueType = 1;
-											break;
-										case "number":
-											valueType = 3;
-											break;
-										case "bool":
-											valueType = 4;
-											break;
-										case "object":
-											valueType = 5;
-											break;
-										default:
-											Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name,
-												"ValueType", valueTypeStr, "string", "number", "bool", "object",
-												"null"));
-											break;
-									}
-								}
+								valueType = ValidateValueType(node, sourceLineNumbers, attribute, valueType);
 								break;
 							case "Action": // The type of modification to be made to the JSON file when the component is installed or uninstalled.
-								string actionValue = Core.GetAttributeValue(sourceLineNumbers, attribute);
-								if (actionValue.Length == 0)
-								{
-									action = CompilerCore.IllegalInteger;
-								}
-								else
-								{
-									switch (actionValue)
-									{
-										case "deleteValue":
-											flags |= 1;
-											action = 1;
-											break;
-										case "setValue":
-											flags |= 2;
-											action = 2;
-											break;
-										case "addArrayValue":
-											flags |= 4;
-											action = 3;
-											break;
-										default:
-											Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name,
-												"Action", actionValue, "deleteValue", "setValue", "addArrayValue"));
-											action = CompilerCore.IllegalInteger;
-											break;
-									}
-								}
-
+								action = ValidateAction(node, sourceLineNumbers, attribute, ref flags);
 								break;
 							case "On": // Defines when the specified changes to the JSON file are to be done.
-								string onValue = Core.GetAttributeValue(sourceLineNumbers, attribute);
-								if (onValue.Length == 0)
-								{
-									@on = CompilerCore.IllegalInteger;
-								}
-								else
-								{
-									switch (onValue)
-									{
-										case "install":
-											@on = 1;
-											break;
-										case "uninstall":
-											flags |= 8;
-											@on = 2;
-											break;
-										case "both":
-											@on = 3;
-											break;
-										default:
-											Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name,
-												"On", onValue, "install", "uninstall", "both"));
-											@on = CompilerCore.IllegalInteger;
-											break;
-									}
-								}
-
+								on = ValidateOn(node, sourceLineNumbers, attribute, ref flags);
 								break;
 							case "PreserveModifiedDate": // Specifies whether or not the modification should preserve the modified date of the file.  Preserving the modified date will allow the file to be patched if no other modifications have been made.
-								string preserveModifiedDateValue = Core.GetAttributeValue(sourceLineNumbers, attribute);
-								if (preserveModifiedDateValue.Length == 0)
-								{
-								}
-								else
-								{
-									switch (preserveModifiedDateValue)
-									{
-										case "yes":
-											flags |= 16;
-											break;
-										case "no":
-											break;
-										default:
-											Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name,
-												"PreserveModifiedDate", preserveModifiedDateValue, "yes", "no"));
-											break;
-									}
-								}
-
+								flags = ValidatePreserveModifiedDate(node, sourceLineNumbers, attribute, flags);
 								break;
 							case "Sequence": // Specifies the order in which the modification is to be attempted on the JSON file.  It is important to ensure that new elements are created before you attempt to modify them.
 								sequence = ToNullableInt(Core.GetAttributeValue(sourceLineNumbers, attribute));
 								break;
 							case "SelectionLanguage": // Specify whether the JSON object should use JSON Path (default) or JSON Pointer as the query language for ElementPath.
-								string selectionLanguageValue = Core.GetAttributeValue(sourceLineNumbers, attribute);
-								if (selectionLanguageValue.Length == 0)
-								{
-									selectionLanguage = CompilerCore.IllegalInteger;
-								}
-								else
-								{
-									switch (selectionLanguageValue)
-									{
-										case "JSONPath":
-											selectionLanguage = 1;
-											break;
-										case "JSONPointer":
-											flags |= 32;
-											selectionLanguage = 2;
-											break;
-										default:
-											Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name,
-												"SelectionLanguage", selectionLanguageValue, "JSONPath", "JSONPointer"));
-											selectionLanguage = CompilerCore.IllegalInteger;
-											break;
-									}
-								}
+								selectionLanguage = ValidateSelectionLanguage(node, sourceLineNumbers, attribute, ref flags);
 								break;
 							case "VerifyPath": // The path to the element being modified. This is required for 'delete' actions. For 'set' actions, VerifyPath is used to decide if the element already exists. The semantic can be either JSON Path or JSON Pointer language, as specified in the SelectionLanguage attribute. Note that this is a formatted field and therefore, square brackets in the path must be escaped. In addition, JSON Path and Pointer allow backslashes to be used to escape characters, so if you intend to include literal backslashes, you must escape them as well by doubling them in this attribute. The string is formatted by MSI first, and the result is consumed as the JSON Path or Pointer.
 								verifyPath = Core.GetAttributeValue(sourceLineNumbers, attribute);
@@ -260,19 +135,16 @@ namespace NerdyDuck.Wix.JsonExtension
 			if (CompilerCore.IntegerNotSet == on)
 			{
 				Core.OnMessage(WixErrors.ExpectedAttribute(sourceLineNumbers, node.Name, "On"));
-				on = CompilerCore.IllegalInteger;
 			}
 
 			if (CompilerCore.IntegerNotSet == action)
 			{
 				Core.OnMessage(WixErrors.ExpectedAttribute(sourceLineNumbers, node.Name, "Action"));
-				action = CompilerCore.IllegalInteger;
 			}
 
 			if (CompilerCore.IntegerNotSet == selectionLanguage)
 			{
 				Core.OnMessage(WixErrors.ExpectedAttribute(sourceLineNumbers, node.Name, "SelectionLanguage"));
-				selectionLanguage = CompilerCore.IllegalInteger;
 			}
 
 			foreach (XmlNode child in node.ChildNodes)
@@ -306,6 +178,171 @@ namespace NerdyDuck.Wix.JsonExtension
 
 				Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "JsonFile");
 			}
+		}
+
+		private int ValidatePreserveModifiedDate(XmlNode node, SourceLineNumberCollection sourceLineNumbers,
+			XmlAttribute attribute, int flags)
+		{
+			string preserveModifiedDateValue = Core.GetAttributeValue(sourceLineNumbers, attribute);
+			if (preserveModifiedDateValue.Length == 0)
+			{
+			}
+			else
+			{
+				switch (preserveModifiedDateValue)
+				{
+					case "yes":
+						flags |= 16;
+						break;
+					case "no":
+						break;
+					default:
+						Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name,
+							"PreserveModifiedDate", preserveModifiedDateValue, "yes", "no"));
+						break;
+				}
+			}
+
+			return flags;
+		}
+
+		private int ValidateSelectionLanguage(XmlNode node, SourceLineNumberCollection sourceLineNumbers,
+			XmlAttribute attribute, ref int flags)
+		{
+			int selectionLanguage;
+			string selectionLanguageValue = Core.GetAttributeValue(sourceLineNumbers, attribute);
+			if (selectionLanguageValue.Length == 0)
+			{
+				selectionLanguage = CompilerCore.IllegalInteger;
+			}
+			else
+			{
+				switch (selectionLanguageValue)
+				{
+					case "JSONPath":
+						selectionLanguage = 1;
+						break;
+					case "JSONPointer":
+						flags |= 32;
+						selectionLanguage = 2;
+						break;
+					default:
+						Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name,
+							"SelectionLanguage", selectionLanguageValue, "JSONPath", "JSONPointer"));
+						selectionLanguage = CompilerCore.IllegalInteger;
+						break;
+				}
+			}
+
+			return selectionLanguage;
+		}
+
+		private int ValidateOn(XmlNode node, SourceLineNumberCollection sourceLineNumbers, XmlAttribute attribute,
+			ref int flags)
+		{
+			int on;
+			string onValue = Core.GetAttributeValue(sourceLineNumbers, attribute);
+			if (onValue.Length == 0)
+			{
+				on = CompilerCore.IllegalInteger;
+			}
+			else
+			{
+				switch (onValue)
+				{
+					case "install":
+						on = 1;
+						break;
+					case "uninstall":
+						flags |= 8;
+						on = 2;
+						break;
+					case "both":
+						on = 3;
+						break;
+					default:
+						Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name,
+							"On", onValue, "install", "uninstall", "both"));
+						on = CompilerCore.IllegalInteger;
+						break;
+				}
+			}
+
+			return on;
+		}
+
+		private int ValidateAction(XmlNode node, SourceLineNumberCollection sourceLineNumbers, XmlAttribute attribute,
+			ref int flags)
+		{
+			int action;
+			string actionValue = Core.GetAttributeValue(sourceLineNumbers, attribute);
+			if (actionValue.Length == 0)
+			{
+				action = CompilerCore.IllegalInteger;
+			}
+			else
+			{
+				switch (actionValue)
+				{
+					case "deleteValue":
+						flags |= 1;
+						action = 1;
+						break;
+					case "setValue":
+						flags |= 2;
+						action = 2;
+						break;
+					case "addArrayValue":
+						flags |= 4;
+						action = 3;
+						break;
+					default:
+						Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name,
+							"Action", actionValue, "deleteValue", "setValue", "addArrayValue"));
+						action = CompilerCore.IllegalInteger;
+						break;
+				}
+			}
+
+			return action;
+		}
+
+		private int ValidateValueType(XmlNode node, SourceLineNumberCollection sourceLineNumbers, XmlAttribute attribute,
+			int valueType)
+		{
+			string valueTypeStr = Core.GetAttributeValue(sourceLineNumbers, attribute);
+			if (valueTypeStr.Length == 0)
+			{
+				valueType = CompilerCore.IllegalInteger;
+			}
+			else
+			{
+				switch (valueTypeStr)
+				{
+					case "null":
+						valueType = 0;
+						break;
+					case "string":
+						valueType = 1;
+						break;
+					case "number":
+						valueType = 3;
+						break;
+					case "bool":
+						valueType = 4;
+						break;
+					case "object":
+						valueType = 5;
+						break;
+					default:
+						Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name,
+							"ValueType", valueTypeStr, "string", "number", "bool", "object",
+							"null"));
+						break;
+				}
+			}
+
+			return valueType;
 		}
 
 		public int? ToNullableInt(string s)
