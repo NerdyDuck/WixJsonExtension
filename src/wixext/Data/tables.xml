@@ -18,7 +18,8 @@
                           category="formatted" description="The value to set. May be one of the simple JSON types, or a JSON-formatted object."/>
         <columnDefinition name="ValueType" type="number" length="4" minValue="0" maxValue="4" description="Null=0,String=1,Number=2,Bool=3,Object=4"/>
         <columnDefinition name="Flags" type="number" length="4" minValue="0" maxValue="63" description="deleteValue=1,setValue=2,addArrayValue=4,uninstall=8,preserveDate=16,jsonPointer=32"/>
-        <columnDefinition name="Component_" type="string" length="72" modularize="column" keyTable="Component" keyColumn="1" category="identifier" description="Foreign key into the Component table referencing the component that controls the execution of the JSON file modification."/>
+        <columnDefinition name="Component_" type="string" length="72" modularize="column" keyTable="Component" keyColumn="1" 
+                          category="identifier" description="Foreign key into the Component table referencing the component that controls the execution of the JSON file modification."/>
         <columnDefinition name="Sequence" type="number" length="2" nullable="yes" description="Order to execute the JSON file modifications."/>
     </tableDefinition>
 </tableDefinitions>

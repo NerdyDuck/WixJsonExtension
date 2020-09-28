@@ -3,7 +3,7 @@
   <ItemGroup>
     <ClCompile Include="CustomAction.cpp" />
     <ClCompile Include="stdafx.cpp" />
-    <ClCompile Include="JsonConfig.cpp" />
+    <ClCompile Include="JsonFile.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />

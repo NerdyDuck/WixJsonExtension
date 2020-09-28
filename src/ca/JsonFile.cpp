@@ -3,7 +3,7 @@
 
 using namespace jsoncons;
 
-LPCWSTR vcsJsonConfigQuery = L"SELECT `JsonConfig`, `File`, `ElementPath`, `VerifyPath`, `Name`, `Value`, `ValueType`, `Flags`, `Component_`, `Sequence` FROM `JsonConfig`";
+LPCWSTR vcsJsonFileQuery = L"SELECT `JsonFile`, `File`, `ElementPath`, `VerifyPath`, `Name`, `Value`, `ValueType`, `Flags`, `Component_`, `Sequence` FROM `JsonFile`";
 enum eRemoveFoldersExQuery { rfqId = 1, rfqComponent, rfqProperty, feqMode };
 
 static HRESULT RecursePath(
@@ -18,11 +18,11 @@ static HRESULT RecursePath(
 );
 
 
-extern "C" UINT WINAPI JsonConfig(
+extern "C" UINT WINAPI JsonFile(
     __in MSIHANDLE hInstall
 )
 {
-    //AssertSz(FALSE, "debug JsonConfig");
+    //AssertSz(FALSE, "debug JsonFile");
 
     HRESULT hr = S_OK;
     PMSIHANDLE hView;
@@ -36,19 +36,19 @@ extern "C" UINT WINAPI JsonConfig(
     MSIHANDLE hTable = NULL;
     MSIHANDLE hColumns = NULL;
 
-    hr = WcaInitialize(hInstall, "JsonConfig");
+    hr = WcaInitialize(hInstall, "JsonFile");
     ExitOnFailure(hr, "Failed to initialize InsertAssignJson.");
 
     // anything to do?
-    if (S_OK != WcaTableExists(L"JsonConfig"))
+    if (S_OK != WcaTableExists(L"JsonFile"))
     {
-        WcaLog(LOGMSG_STANDARD, "JsonConfig table doesn't exist, so there are no folders to remove.");
+        WcaLog(LOGMSG_STANDARD, "JsonFile table doesn't exist, so there are no folders to remove.");
         ExitFunction();
     }
 
     // query and loop through all the remove folders exceptions
-    hr = WcaOpenExecuteView(vcsJsonConfigQuery, &hView);
-    ExitOnFailure(hr, "Failed to open view on JsonConfig table");
+    hr = WcaOpenExecuteView(vcsJsonFileQuery, &hView);
+    ExitOnFailure(hr, "Failed to open view on JsonFile table");
 
     while (S_OK == (hr = WcaFetchRecord(hView, &hRec)))
     {
@@ -76,7 +76,7 @@ extern "C" UINT WINAPI JsonConfig(
     {
         hr = S_OK;
     }
-    ExitOnFailure(hr, "Failure occured while processing JsonConfig table");
+    ExitOnFailure(hr, "Failure occured while processing JsonFile table");
 
 LExit:
     if (hColumns)

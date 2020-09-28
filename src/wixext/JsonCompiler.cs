@@ -5,48 +5,48 @@ using Microsoft.Tools.WindowsInstallerXml;
 
 namespace NerdyDuck.Wix.JsonExtension
 {
-    public sealed class JsonCompiler : CompilerExtension
-    {
-	    public JsonCompiler()
-        {
-            Schema = LoadXmlSchemaHelper(Assembly.GetExecutingAssembly(), "NerdyDuck.Wix.JsonExtension.Xsd.json.xsd");
-        }
+	public sealed class JsonCompiler : CompilerExtension
+	{
+		public JsonCompiler()
+		{
+			Schema = LoadXmlSchemaHelper(Assembly.GetExecutingAssembly(), "NerdyDuck.Wix.JsonExtension.Xsd.json.xsd");
+		}
 
-        public override XmlSchema Schema
-        {
-	        get;
-        }
+		public override XmlSchema Schema
+		{
+			get;
+		}
 
-        /// <summary>
-        /// Processes an element for the Compiler.
-        /// </summary>
-        /// <param name="sourceLineNumbers">Source line number for the parent element.</param>
-        /// <param name="parentElement">Parent element of element to process.</param>
-        /// <param name="element">Element to process.</param>
-        /// <param name="contextValues">Extra information about the context in which this element is being parsed.</param>
-        public override void ParseElement(SourceLineNumberCollection sourceLineNumbers, XmlElement parentElement, XmlElement element, params string[] contextValues)
-        {
-	        switch (parentElement.LocalName)
-	        {
-		        case "Component":
-			        string componentId = contextValues[0];
-			        string directoryId = contextValues[1];
+		/// <summary>
+		/// Processes an element for the Compiler.
+		/// </summary>
+		/// <param name="sourceLineNumbers">Source line number for the parent element.</param>
+		/// <param name="parentElement">Parent element of element to process.</param>
+		/// <param name="element">Element to process.</param>
+		/// <param name="contextValues">Extra information about the context in which this element is being parsed.</param>
+		public override void ParseElement(SourceLineNumberCollection sourceLineNumbers, XmlElement parentElement, XmlElement element, params string[] contextValues)
+		{
+			switch (parentElement.LocalName)
+			{
+				case "Component":
+					string componentId = contextValues[0];
+					string directoryId = contextValues[1];
 
-			        switch (element.LocalName)
-			        {
-				        case "JsonFile":
-					        ParseJsonFileElement(element, componentId, directoryId);
-					        break;
-				        default:
-					        Core.UnexpectedElement(parentElement, element);
-					        break;
-			        }
-			        break;
-		        default:
-			        Core.UnexpectedElement(parentElement, element);
-			        break;
-	        }
-        }
+					switch (element.LocalName)
+					{
+						case "JsonFile":
+							ParseJsonFileElement(element, componentId, directoryId);
+							break;
+						default:
+							Core.UnexpectedElement(parentElement, element);
+							break;
+					}
+					break;
+				default:
+					Core.UnexpectedElement(parentElement, element);
+					break;
+			}
+		}
 
 		/// <summary>
 		/// Parses a RemoveFolderEx element.
@@ -66,7 +66,7 @@ namespace NerdyDuck.Wix.JsonExtension
 			int on = CompilerCore.IntegerNotSet;
 			int flags = 0;
 			int action = CompilerCore.IntegerNotSet;
-			int sequence = CompilerCore.IntegerNotSet;
+			int? sequence = 1;
 			int selectionLanguage = CompilerCore.IntegerNotSet;
 			string verifyPath = null;
 
@@ -209,7 +209,7 @@ namespace NerdyDuck.Wix.JsonExtension
 
 								break;
 							case "Sequence": // Specifies the order in which the modification is to be attempted on the JSON file.  It is important to ensure that new elements are created before you attempt to modify them.
-								int.TryParse(Core.GetAttributeValue(sourceLineNumbers, attribute), out sequence);
+								sequence = ToNullableInt(Core.GetAttributeValue(sourceLineNumbers, attribute));
 								break;
 							case "SelectionLanguage": // Specify whether the JSON object should use JSON Path (default) or JSON Pointer as the query language for ElementPath.
 								string selectionLanguageValue = Core.GetAttributeValue(sourceLineNumbers, attribute);
@@ -295,17 +295,28 @@ namespace NerdyDuck.Wix.JsonExtension
 				Row row = Core.CreateRow(sourceLineNumbers, "JsonFile");
 				row[0] = id;
 				row[1] = file;
-				row[2] = elementPath; 
-				row[3] = verifyPath; 
-				row[4] = name; 
-				row[5] = value; 
+				row[2] = elementPath;
+				row[3] = verifyPath;
+				row[4] = name;
+				row[5] = value;
 				row[6] = valueType;
 				row[7] = flags;
 				row[8] = componentId;
-				row[9] = sequence; 
+				row[9] = sequence;
 
 				Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "JsonFile");
 			}
 		}
+
+		public int? ToNullableInt(string s)
+		{
+			if (int.TryParse(s, out int i))
+			{
+				return i;
+			}
+
+			return null;
+		}
 	}
+
 }
