@@ -78,40 +78,60 @@ namespace NerdyDuck.Wix.JsonExtension
 					{
 						switch (attribute.LocalName)
 						{
-							case "Id": // Identifier for json file modification
+							case "Id": 
+								// Identifier for json file modification
 								id = Core.GetAttributeIdentifierValue(sourceLineNumbers, attribute);
 								break;
-							case "File": // Path of the .json file to modify.
+							case "File": 
+								// Path of the .json file to modify.
 								file = Core.GetAttributeValue(sourceLineNumbers, attribute);
 								break;
-							case "ElementPath": // The path to the parent element of the element to be modified. The semantic can be either JSON Path or JSON Pointer language, as specified in the SelectionLanguage attribute. Note that this is a formatted field and therefore, square brackets in the path must be escaped. In addition, JSON Path and Pointer allow backslashes to be used to escape characters, so if you intend to include literal backslashes, you must escape them as well by doubling them in this attribute. The string is formatted by MSI first, and the result is consumed as the JSON Path or Pointer.
+							case "ElementPath": 
+								// The path to the parent element of the element to be modified. The semantic can be either JSON Path or JSON Pointer language, as specified in the
+								// SelectionLanguage attribute. Note that this is a formatted field and therefore, square brackets in the path must be escaped. In addition, JSON Path
+								// and Pointer allow backslashes to be used to escape characters, so if you intend to include literal backslashes, you must escape them as well by doubling
+								// them in this attribute. The string is formatted by MSI first, and the result is consumed as the JSON Path or Pointer.
 								elementPath = Core.GetAttributeValue(sourceLineNumbers, attribute);
 								break;
-							case "Name": // Name of JSON property to modify. If the value is empty, then the parent element specified in ElementPath is the target of any changes.
+							case "Name": 
+								// Name of JSON property to modify. If the value is empty, then the parent element specified in ElementPath is the target of any changes.
 								name = Core.GetAttributeValue(sourceLineNumbers, attribute);
 								break;
-							case "Value": // The value to set. May be one of the simple JSON types, or a JSON-formatted object. See the <html:a href="http://msdn.microsoft.com/library/aa368609(VS.85).aspx" target="_blank">Formatted topic</html:a> for information how to escape square brackets in the value.
+							case "Value": 
+								// The value to set. May be one of the simple JSON types, or a JSON-formatted object. See the
+								// <html:a href="http://msdn.microsoft.com/library/aa368609(VS.85).aspx" target="_blank">Formatted topic</html:a> for information how to escape square brackets in the value.
 								value = Core.GetAttributeValue(sourceLineNumbers, attribute);
 								break;
-							case "ValueType": // The type of Value.
+							case "ValueType": 
+								// The type of Value.
 								valueType = ValidateValueType(node, sourceLineNumbers, attribute, valueType);
 								break;
-							case "Action": // The type of modification to be made to the JSON file when the component is installed or uninstalled.
+							case "Action": 
+								// The type of modification to be made to the JSON file when the component is installed or uninstalled.
 								action = ValidateAction(node, sourceLineNumbers, attribute, ref flags);
 								break;
-							case "On": // Defines when the specified changes to the JSON file are to be done.
+							case "On": 
+								// Defines when the specified changes to the JSON file are to be done.
 								on = ValidateOn(node, sourceLineNumbers, attribute, ref flags);
 								break;
-							case "PreserveModifiedDate": // Specifies whether or not the modification should preserve the modified date of the file.  Preserving the modified date will allow the file to be patched if no other modifications have been made.
+							case "PreserveModifiedDate": 
+								// Specifies whether or not the modification should preserve the modified date of the file.  Preserving the modified date will allow
+								// the file to be patched if no other modifications have been made.
 								flags = ValidatePreserveModifiedDate(node, sourceLineNumbers, attribute, flags);
 								break;
-							case "Sequence": // Specifies the order in which the modification is to be attempted on the JSON file.  It is important to ensure that new elements are created before you attempt to modify them.
+							case "Sequence": 
+								// Specifies the order in which the modification is to be attempted on the JSON file.  It is important to ensure that new elements are created before you attempt to modify them.
 								sequence = ToNullableInt(Core.GetAttributeValue(sourceLineNumbers, attribute));
 								break;
-							case "SelectionLanguage": // Specify whether the JSON object should use JSON Path (default) or JSON Pointer as the query language for ElementPath.
+							case "SelectionLanguage": 
+								// Specify whether the JSON object should use JSON Path (default) or JSON Pointer as the query language for ElementPath.
 								selectionLanguage = ValidateSelectionLanguage(node, sourceLineNumbers, attribute, ref flags);
 								break;
-							case "VerifyPath": // The path to the element being modified. This is required for 'delete' actions. For 'set' actions, VerifyPath is used to decide if the element already exists. The semantic can be either JSON Path or JSON Pointer language, as specified in the SelectionLanguage attribute. Note that this is a formatted field and therefore, square brackets in the path must be escaped. In addition, JSON Path and Pointer allow backslashes to be used to escape characters, so if you intend to include literal backslashes, you must escape them as well by doubling them in this attribute. The string is formatted by MSI first, and the result is consumed as the JSON Path or Pointer.
+							case "VerifyPath": 
+								// The path to the element being modified. This is required for 'delete' actions. For 'set' actions, VerifyPath is used to decide if the element already exists.
+								// The semantic can be either JSON Path or JSON Pointer language, as specified in the SelectionLanguage attribute. Note that this is a formatted field and therefore,
+								// square brackets in the path must be escaped. In addition, JSON Path and Pointer allow backslashes to be used to escape characters, so if you intend to include literal
+								// backslashes, you must escape them as well by doubling them in this attribute. The string is formatted by MSI first, and the result is consumed as the JSON Path or Pointer.
 								verifyPath = Core.GetAttributeValue(sourceLineNumbers, attribute);
 								break;
 							default:
@@ -274,6 +294,10 @@ namespace NerdyDuck.Wix.JsonExtension
 		private int ValidateAction(XmlNode node, SourceLineNumberCollection sourceLineNumbers, XmlAttribute attribute,
 			ref int flags)
 		{
+			const string ActionDeleteValue = "deleteValue";
+			const string ActionSetValue = "setValue";
+			const string ActionAddArrayValue = "addArrayValue";
+
 			int action;
 			string actionValue = Core.GetAttributeValue(sourceLineNumbers, attribute);
 			if (actionValue.Length == 0)
@@ -282,23 +306,24 @@ namespace NerdyDuck.Wix.JsonExtension
 			}
 			else
 			{
+				
 				switch (actionValue)
 				{
-					case "deleteValue":
+					case ActionDeleteValue:
 						flags |= 1;
 						action = 1;
 						break;
-					case "setValue":
+					case ActionSetValue:
 						flags |= 2;
 						action = 2;
 						break;
-					case "addArrayValue":
+					case ActionAddArrayValue:
 						flags |= 4;
 						action = 3;
 						break;
 					default:
 						Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name,
-							"Action", actionValue, "deleteValue", "setValue", "addArrayValue"));
+							"Action", actionValue, ActionDeleteValue, ActionSetValue, ActionAddArrayValue));
 						action = CompilerCore.IllegalInteger;
 						break;
 				}

@@ -3,8 +3,10 @@
 
 using namespace jsoncons;
 
-LPCWSTR vcsJsonFileQuery = L"SELECT `JsonFile`, `File`, `ElementPath`, `VerifyPath`, `Name`, `Value`, `ValueType`, `Flags`, `Component_`, `Sequence` FROM `JsonFile`";
-enum eJsonFileQuery { rfqId = 1, rfqComponent, rfqProperty, feqMode };
+LPCWSTR vcsJsonFileQuery = L"SELECT `JsonFile`.`JsonFile`, `JsonFile`.`File`, `JsonFile`.`ElementPath`, `JsonFile`.`VerifyPath`, "
+L"`JsonFile`.`Name`, `JsonFile`.`Value`, `JsonFile`.`ValueType`, `JsonFile`.`Flags`, `JsonFile`.`Component_` FROM `JsonFile`,`Component`"
+L"WHERE `JsonFile`.`Component_`=`Component`.`Component` ORDER BY `File`, `Sequence`";
+enum eJsonFileQuery { jfqId = 1, jfqFile, jfqElementPath, jfqVerifyPath, jfqName, jfqValue, jfqValueType, jfqFlags, jfqComponent };
 
 static HRESULT RecursePath(
     __in_z LPCWSTR wzPath,
@@ -31,7 +33,7 @@ extern "C" UINT WINAPI JsonFile(
     LPWSTR sczComponent = NULL;
     LPWSTR sczProperty = NULL;
     LPWSTR sczPath = NULL;
-    int iMode = 0;
+    int iSeq = 0;
     DWORD dwCounter = 0;
     MSIHANDLE hTable = NULL;
     MSIHANDLE hColumns = NULL;
@@ -42,7 +44,7 @@ extern "C" UINT WINAPI JsonFile(
     // anything to do?
     if (S_OK != WcaTableExists(L"JsonFile"))
     {
-        WcaLog(LOGMSG_STANDARD, "JsonFile table doesn't exist, so there are no folders to remove.");
+        WcaLog(LOGMSG_STANDARD, "JsonFile table doesn't exist, so there are no .json files to update.");
         ExitFunction();
     }
 
@@ -52,22 +54,19 @@ extern "C" UINT WINAPI JsonFile(
 
     while (S_OK == (hr = WcaFetchRecord(hView, &hRec)))
     {
-        hr = WcaGetRecordString(hRec, rfqId, &sczId);
+        hr = WcaGetRecordString(hRec, jfqId, &sczId);
         ExitOnFailure(hr, "Failed to get remove folder identity.");
 
-        hr = WcaGetRecordString(hRec, rfqComponent, &sczComponent);
+        hr = WcaGetRecordString(hRec, jfqComponent, &sczComponent);
         ExitOnFailure(hr, "Failed to get remove folder component.");
 
-        hr = WcaGetRecordString(hRec, rfqProperty, &sczProperty);
-        ExitOnFailure(hr, "Failed to get remove folder property.");
-
-        hr = WcaGetRecordInteger(hRec, feqMode, &iMode);
-        ExitOnFailure(hr, "Failed to get remove folder mode");
+        //hr = WcaGetRecordInteger(hRec, jfqSeq, &iSeq);
+        //ExitOnFailure(hr, "Failed to get remove folder mode");
 
         hr = WcaGetProperty(sczProperty, &sczPath);
         ExitOnFailure2(hr, "Failed to resolve remove folder property: %S for row: %S", sczProperty, sczId);
 
-        hr = RecursePath(sczPath, sczId, sczComponent, sczProperty, iMode, &dwCounter, &hTable, &hColumns);
+        hr = RecursePath(sczPath, sczId, sczComponent, sczProperty, iSeq, &dwCounter, &hTable, &hColumns);
         ExitOnFailure2(hr, "Failed while navigating path: %S for row: %S", sczPath, sczId);
     }
 

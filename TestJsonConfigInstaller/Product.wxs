@@ -29,7 +29,7 @@
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
       <Component Id="ProductComponent" Guid="{51CDDB12-E903-436C-9371-2E4E93D3B109}">
         <File Id="JsonConfig" Source="appsettings.json"/>
-        <Json:JsonFile Id="appSettings" File="JsonConfig" ElementPath="$.Username" Value="BensUsername" ValueType="string" Action="setValue" On ="install" SelectionLanguage="JSONPath" />
+        <Json:JsonFile Id="appSettings" File="[#JsonConfig]" ElementPath="$." Name="Username" Value="BensUsername" ValueType="string" Action="setValue" On ="install" SelectionLanguage="JSONPath" />
       </Component>
     </ComponentGroup>
   </Fragment>
