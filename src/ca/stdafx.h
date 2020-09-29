@@ -11,8 +11,7 @@
 // WiX Header Files:
 #include <wcautil.h>
 #include <strutil.h>
-
+#include <iostream>
+#include <fstream>
 // TODO: reference additional headers your program requires here
 #include "jsoncons/json.hpp"
-#include "jsoncons_ext/jsonpath/json_query.hpp"
-#include "jsoncons_ext/jsonpointer/jsonpointer.hpp"

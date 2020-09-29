@@ -9,408 +9,262 @@
 
 #include <string>
 
-#include <jsoncons/json_input_handler.hpp>
-#include <jsoncons/json_output_handler.hpp>
-#include <jsoncons/parse_error_handler.hpp>
+#include <jsoncons/json_visitor.hpp>
 
 namespace jsoncons {
 
 template <class CharT>
-class basic_json_output_input_adapter : public basic_json_input_handler<CharT>
+class basic_json_filter : public basic_json_visitor<CharT>
 {
 public:
-    using typename basic_json_input_handler<CharT>::string_view_type;
+    using typename basic_json_visitor<CharT>::char_type;
+    using typename basic_json_visitor<CharT>::string_view_type;
 private:
-
-    basic_null_json_output_handler<CharT> null_output_handler_;
-    basic_json_output_handler<CharT>& output_handler_;
+    basic_json_visitor<char_type>& destination_;
 
     // noncopyable and nonmoveable
-    basic_json_output_input_adapter<CharT>(const basic_json_output_input_adapter<CharT>&) = delete;
-    basic_json_output_input_adapter<CharT>& operator=(const basic_json_output_input_adapter<CharT>&) = delete;
-
+    basic_json_filter(const basic_json_filter&) = delete;
+    basic_json_filter& operator=(const basic_json_filter&) = delete;
 public:
-    basic_json_output_input_adapter()
-        : output_handler_(null_output_handler_)
+    basic_json_filter(basic_json_visitor<char_type>& visitor)
+        : destination_(visitor)
     {
     }
 
-    basic_json_output_input_adapter(basic_json_output_handler<CharT>& handler)
-        : output_handler_(handler)
+    basic_json_visitor<char_type>& destination()
     {
-    }
-
-private:
-
-    void do_begin_json() override
-    {
-        output_handler_.begin_json();
-    }
-
-    void do_end_json() override
-    {
-        output_handler_.end_json();
-    }
-
-    void do_begin_object(const parsing_context&) override
-    {
-        output_handler_.begin_object();
-    }
-
-    void do_begin_object(size_t length, const parsing_context&) override
-    {
-        output_handler_.begin_object(length);
-    }
-
-    void do_end_object(const parsing_context&) override
-    {
-        output_handler_.end_object();
-    }
-
-    void do_begin_array(const parsing_context&) override
-    {
-        output_handler_.begin_array();
-    }
-
-    void do_begin_array(size_t length, const parsing_context&) override
-    {
-        output_handler_.begin_array(length);
-    }
-
-    void do_end_array(const parsing_context&) override
-    {
-        output_handler_.end_array();
-    }
-
-    void do_name(const string_view_type& name, 
-                 const parsing_context&) override
-    {
-        output_handler_.name(name);
-    }
-
-    void do_string_value(const string_view_type& value, 
-                         const parsing_context&) override
-    {
-        output_handler_.string_value(value);
-    }
-
-    void do_byte_string_value(const uint8_t* data, size_t length, 
-                                const parsing_context&) override
-    {
-        output_handler_.byte_string_value(data, length);
-    }
-
-    void do_integer_value(int64_t value, const parsing_context&) override
-    {
-        output_handler_.integer_value(value);
-    }
-
-    void do_uinteger_value(uint64_t value, 
-                           const parsing_context&) override
-    {
-        output_handler_.uinteger_value(value);
-    }
-
-    void do_double_value(double value, const number_format& fmt, const parsing_context&) override
-    {
-        output_handler_.double_value(value, fmt);
-    }
-
-    void do_bool_value(bool value, const parsing_context&) override
-    {
-        output_handler_.bool_value(value);
-    }
-
-    void do_null_value(const parsing_context&) override
-    {
-        output_handler_.null_value();
-    }
-};
-
-template <class CharT>
-class basic_json_input_output_adapter : public basic_json_output_handler<CharT>
-{
-public:
-    using typename basic_json_output_handler<CharT>::string_view_type                                 ;
-private:
-    class null_parsing_context : public parsing_context
-    {
-        size_t do_line_number() const override { return 0; }
-
-        size_t do_column_number() const override { return 0; }
-    };
-    const null_parsing_context default_context_ = null_parsing_context();
-
-    basic_null_json_input_handler<CharT> null_input_handler_;
-    basic_json_output_input_adapter<CharT> default_input_output_adapter_;
-    basic_json_input_handler<CharT>& input_handler_;
-    const basic_json_output_input_adapter<CharT>& input_output_adapter_;
-
-    // noncopyable and nonmoveable
-    basic_json_input_output_adapter<CharT>(const basic_json_input_output_adapter<CharT>&) = delete;
-    basic_json_input_output_adapter<CharT>& operator=(const basic_json_input_output_adapter<CharT>&) = delete;
-
-public:
-    basic_json_input_output_adapter()
-        : input_handler_(null_input_handler_),
-          input_output_adapter_(default_input_output_adapter_)
-    {
-    }
-    basic_json_input_output_adapter(basic_json_input_handler<CharT>& input_handler)
-        : input_handler_(input_handler),
-          input_output_adapter_(default_input_output_adapter_)
-    {
-    }
-    basic_json_input_output_adapter(basic_json_input_handler<CharT>& input_handler,
-                                    const basic_json_output_input_adapter<CharT>& input_output_adapter)
-        : input_handler_(input_handler),
-          input_output_adapter_(input_output_adapter)
-    {
-    }
-
-private:
-
-    void do_begin_json() override
-    {
-        input_handler_.begin_json();
-    }
-
-    void do_end_json() override
-    {
-        input_handler_.end_json();
-    }
-
-    void do_begin_object() override
-    {
-        input_handler_.begin_object(default_context_);
-    }
-
-    void do_begin_object(size_t length) override
-    {
-        input_handler_.begin_object(length, default_context_);
-    }
-
-    void do_end_object() override
-    {
-        input_handler_.end_object(default_context_);
-    }
-
-    void do_begin_array() override
-    {
-        input_handler_.begin_array(default_context_);
-    }
-
-    void do_begin_array(size_t length) override
-    {
-        input_handler_.begin_array(length, default_context_);
-    }
-
-    void do_end_array() override
-    {
-        input_handler_.end_array(default_context_);
-    }
-
-    void do_name(const string_view_type& name) override
-    {
-        input_handler_.name(name, default_context_);
-    }
-
-    void do_string_value(const string_view_type& value) override
-    {
-        input_handler_.string_value(value, default_context_);
-    }
-
-    void do_byte_string_value(const uint8_t* data, size_t length) override
-    {
-        input_handler_.byte_string_value(data, length, default_context_);
-    }
-
-    void do_integer_value(int64_t value) override
-    {
-        input_handler_.integer_value(value, default_context_);
-    }
-
-    void do_uinteger_value(uint64_t value) override
-    {
-        input_handler_.uinteger_value(value, default_context_);
-    }
-
-    void do_double_value(double value, const number_format& fmt) override
-    {
-        input_handler_.double_value(value, fmt, default_context_);
-    }
-
-    void do_bool_value(bool value) override
-    {
-        input_handler_.bool_value(value, default_context_);
-    }
-
-    void do_null_value() override
-    {
-        input_handler_.null_value(default_context_);
-    }
-};
-
-template <class CharT>
-class basic_json_filter : public basic_json_input_handler<CharT>
-{
-public:
-    using typename basic_json_input_handler<CharT>::string_view_type                                 ;
-private:
-    basic_json_output_input_adapter<CharT> input_output_adapter_;
-    basic_json_input_output_adapter<CharT> output_input_adapter_;
-    basic_json_output_handler<CharT>& output_handler_;
-    basic_json_input_handler<CharT>& downstream_handler_;
-
-    // noncopyable and nonmoveable
-    basic_json_filter<CharT>(const basic_json_filter<CharT>&) = delete;
-    basic_json_filter<CharT>& operator=(const basic_json_filter<CharT>&) = delete;
-public:
-    basic_json_filter(basic_json_output_handler<CharT>& handler)
-        : input_output_adapter_(handler),
-          output_input_adapter_(*this),
-          output_handler_(output_input_adapter_),
-          downstream_handler_(input_output_adapter_)
-    {
-    }
-
-    basic_json_filter(basic_json_input_handler<CharT>& handler)
-        : output_input_adapter_(*this),
-          output_handler_(output_input_adapter_),
-          downstream_handler_(handler)
-    {
-    }
-
-    operator basic_json_output_handler<CharT>&() 
-    { 
-        return output_handler_; 
+        return destination_;
     }
 
 #if !defined(JSONCONS_NO_DEPRECATED)
-    basic_json_input_handler<CharT>& input_handler()
+
+    JSONCONS_DEPRECATED_MSG("Instead, use destination()")
+    basic_json_visitor<char_type>& to_handler()
     {
-        return downstream_handler_;
+        return destination_;
+    }
+    JSONCONS_DEPRECATED_MSG("Instead, use destination") 
+    basic_json_visitor<char_type>& input_handler()
+    {
+        return destination_;
+    }
+
+    JSONCONS_DEPRECATED_MSG("Instead, use destination") 
+    basic_json_visitor<char_type>& downstream_handler()
+    {
+        return destination_;
+    }
+
+    JSONCONS_DEPRECATED_MSG("Instead, use destination") 
+    basic_json_visitor<char_type>& destination_handler()
+    {
+        return destination_;
     }
 #endif
 
-    basic_json_input_handler<CharT>& downstream_handler()
-    {
-        return downstream_handler_;
-    }
-
 private:
-    void do_begin_json() override
+    void visit_flush() override
     {
-        downstream_handler_.begin_json();
+        destination_.flush();
     }
 
-    void do_end_json() override
+    bool visit_begin_object(semantic_tag tag, const ser_context& context, std::error_code& ec) override
     {
-        downstream_handler_.end_json();
+        return destination_.begin_object(tag, context, ec);
     }
 
-    void do_begin_object(const parsing_context& context) override
+    bool visit_begin_object(std::size_t length, semantic_tag tag, const ser_context& context, std::error_code& ec) override
     {
-        downstream_handler_.begin_object(context);
+        return destination_.begin_object(length, tag, context, ec);
     }
 
-    void do_begin_object(size_t length, const parsing_context& context) override
+    bool visit_end_object(const ser_context& context, std::error_code& ec) override
     {
-        downstream_handler_.begin_object(length, context);
+        return destination_.end_object(context, ec);
     }
 
-    void do_end_object(const parsing_context& context) override
+    bool visit_begin_array(semantic_tag tag, const ser_context& context, std::error_code& ec) override
     {
-        downstream_handler_.end_object(context);
+        return destination_.begin_array(tag, context, ec);
     }
 
-    void do_begin_array(const parsing_context& context) override
+    bool visit_begin_array(std::size_t length, semantic_tag tag, const ser_context& context, std::error_code& ec) override
     {
-        downstream_handler_.begin_array(context);
+        return destination_.begin_array(length, tag, context, ec);
     }
 
-    void do_begin_array(size_t length, const parsing_context& context) override
+    bool visit_end_array(const ser_context& context, std::error_code& ec) override
     {
-        downstream_handler_.begin_array(length, context);
+        return destination_.end_array(context, ec);
     }
 
-    void do_end_array(const parsing_context& context) override
+    bool visit_key(const string_view_type& name,
+                 const ser_context& context,
+                 std::error_code& ec) override
     {
-        downstream_handler_.end_array(context);
+        return destination_.key(name, context, ec);
     }
 
-    void do_name(const string_view_type& name,
-                 const parsing_context& context) override
+    bool visit_string(const string_view_type& value,
+                      semantic_tag tag,
+                      const ser_context& context,
+                      std::error_code& ec) override
     {
-        downstream_handler_.name(name,context);
+        return destination_.string_value(value, tag, context, ec);
     }
 
-    void do_string_value(const string_view_type& value,
-                         const parsing_context& context) override
+    bool visit_byte_string(const byte_string_view& b, 
+                           semantic_tag tag,
+                           const ser_context& context,
+                           std::error_code& ec) override
     {
-        downstream_handler_.string_value(value,context);
+        return destination_.byte_string_value(b, tag, context, ec);
     }
 
-    void do_byte_string_value(const uint8_t* data, size_t length,
-                              const parsing_context& context) override
+    bool visit_byte_string(const byte_string_view& b, 
+                           uint64_t ext_tag,
+                           const ser_context& context,
+                           std::error_code& ec) override
     {
-        downstream_handler_.byte_string_value(data, length, context);
+        return destination_.byte_string_value(b, ext_tag, context, ec);
     }
 
-    void do_double_value(double value, const number_format& fmt,
-                 const parsing_context& context) override
+    bool visit_uint64(uint64_t value, semantic_tag tag, const ser_context& context, std::error_code& ec) override
     {
-        downstream_handler_.double_value(value, fmt, context);
+        return destination_.uint64_value(value, tag, context, ec);
     }
 
-    void do_integer_value(int64_t value,
-                 const parsing_context& context) override
+    bool visit_int64(int64_t value, semantic_tag tag, const ser_context& context, std::error_code& ec) override
     {
-        downstream_handler_.integer_value(value,context);
+        return destination_.int64_value(value, tag, context, ec);
     }
 
-    void do_uinteger_value(uint64_t value,
-                 const parsing_context& context) override
+    bool visit_half(uint16_t value, semantic_tag tag, const ser_context& context, std::error_code& ec) override
     {
-        downstream_handler_.uinteger_value(value,context);
+        return destination_.half_value(value, tag, context, ec);
     }
 
-    void do_bool_value(bool value,
-                 const parsing_context& context) override
+    bool visit_double(double value, semantic_tag tag, const ser_context& context, std::error_code& ec) override
     {
-        downstream_handler_.bool_value(value,context);
+        return destination_.double_value(value, tag, context, ec);
     }
 
-    void do_null_value(const parsing_context& context) override
+    bool visit_bool(bool value, semantic_tag tag, const ser_context& context, std::error_code& ec) override
     {
-        downstream_handler_.null_value(context);
+        return destination_.bool_value(value, tag, context, ec);
     }
 
+    bool visit_null(semantic_tag tag, const ser_context& context, std::error_code& ec) override
+    {
+        return destination_.null_value(tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const uint8_t>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_.typed_array(s, tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const uint16_t>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_.typed_array(s, tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const uint32_t>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_.typed_array(s, tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const uint64_t>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_.typed_array(s, tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const int8_t>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_.typed_array(s, tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const int16_t>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_.typed_array(s, tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const int32_t>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_.typed_array(s, tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const int64_t>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_.typed_array(s, tag, context, ec);
+    }
+
+    bool visit_typed_array(half_arg_t, 
+                        const jsoncons::span<const uint16_t>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_.typed_array(half_arg, s, tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const float>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_.typed_array(s, tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const double>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_.typed_array(s, tag, context, ec);
+    }
+
+    bool visit_begin_multi_dim(const jsoncons::span<const size_t>& shape,
+                            semantic_tag tag,
+                            const ser_context& context, 
+                            std::error_code& ec) override
+    {
+        return destination_.begin_multi_dim(shape, tag, context, ec);
+    }
+
+    bool visit_end_multi_dim(const ser_context& context,
+                          std::error_code& ec) override
+    {
+        return destination_.end_multi_dim(context, ec);
+    }
 };
 
-// Filters out begin_json and end_json events
 template <class CharT>
-class basic_json_fragment_filter : public basic_json_filter<CharT>
-{
-public:
-    using typename basic_json_filter<CharT>::string_view_type;
-
-    basic_json_fragment_filter(basic_json_input_handler<CharT>& handler)
-        : basic_json_filter<CharT>(handler)
-    {
-    }
-private:
-    void do_begin_json() override
-    {
-    }
-
-    void do_end_json() override
-    {
-    }
-};
-
-template <class CharT>
-class basic_rename_object_member_filter : public basic_json_filter<CharT>
+class basic_rename_object_key_filter : public basic_json_filter<CharT>
 {
 public:
     using typename basic_json_filter<CharT>::string_view_type;
@@ -419,45 +273,336 @@ private:
     std::basic_string<CharT> name_;
     std::basic_string<CharT> new_name_;
 public:
-    basic_rename_object_member_filter(const std::basic_string<CharT>& name,
+    basic_rename_object_key_filter(const std::basic_string<CharT>& name,
                              const std::basic_string<CharT>& new_name,
-                             basic_json_output_handler<CharT>& handler)
-        : basic_json_filter<CharT>(handler), 
-          name_(name), new_name_(new_name)
-    {
-    }
-
-    basic_rename_object_member_filter(const std::basic_string<CharT>& name,
-                             const std::basic_string<CharT>& new_name,
-                             basic_json_input_handler<CharT>& handler)
-        : basic_json_filter<CharT>(handler), 
+                             basic_json_visitor<CharT>& visitor)
+        : basic_json_filter<CharT>(visitor), 
           name_(name), new_name_(new_name)
     {
     }
 
 private:
-    void do_name(const string_view_type& name,
-                 const parsing_context& context) override
+    bool visit_key(const string_view_type& name,
+                 const ser_context& context,
+                 std::error_code& ec) override
     {
         if (name == name_)
         {
-            this->downstream_handler().name(new_name_,context);
+            return this->destination().key(new_name_,context, ec);
         }
         else
         {
-            this->downstream_handler().name(name,context);
+            return this->destination().key(name,context,ec);
         }
     }
 };
 
-typedef basic_json_filter<char> json_filter;
-typedef basic_json_filter<wchar_t> wjson_filter;
-typedef basic_rename_object_member_filter<char> rename_object_member_filter;
-typedef basic_rename_object_member_filter<wchar_t> wrename_object_member_filter;
+template <class From,class To,class Enable=void>
+class json_visitor_adaptor : public From
+{
+public:
+    using typename From::string_view_type;
+private:
+    To* destination_;
+
+    // noncopyable
+    json_visitor_adaptor(const json_visitor_adaptor&) = delete;
+    json_visitor_adaptor& operator=(const json_visitor_adaptor&) = delete;
+public:
+
+    json_visitor_adaptor()
+        : destination_(nullptr)
+    {
+    }
+    json_visitor_adaptor(To& visitor)
+        : destination_(std::addressof(visitor))
+    {
+    }
+
+    // moveable
+    json_visitor_adaptor(json_visitor_adaptor&&) = default;
+    json_visitor_adaptor& operator=(json_visitor_adaptor&&) = default;
+
+    To& destination()
+    {
+        return *destination_;
+    }
+
+private:
+    void visit_flush() override
+    {
+        destination_->flush();
+    }
+
+    bool visit_begin_object(semantic_tag tag, 
+                         const ser_context& context,
+                         std::error_code& ec) override
+    {
+        return destination_->begin_object(tag, context, ec);
+    }
+
+    bool visit_begin_object(std::size_t length, 
+                         semantic_tag tag, 
+                         const ser_context& context,
+                         std::error_code& ec) override
+    {
+        return destination_->begin_object(length, tag, context, ec);
+    }
+
+    bool visit_end_object(const ser_context& context, std::error_code& ec) override
+    {
+        return destination_->end_object(context, ec);
+    }
+
+    bool visit_begin_array(semantic_tag tag, 
+                        const ser_context& context,
+                        std::error_code& ec) override
+    {
+        return destination_->begin_array(tag, context, ec);
+    }
+
+    bool visit_begin_array(std::size_t length, 
+                        semantic_tag tag, 
+                        const ser_context& context,
+                        std::error_code& ec) override
+    {
+        return destination_->begin_array(length, tag, context, ec);
+    }
+
+    bool visit_end_array(const ser_context& context, std::error_code& ec) override
+    {
+        return destination_->end_array(context, ec);
+    }
+
+    bool visit_key(const string_view_type& name,
+                 const ser_context& context,
+                 std::error_code& ec) override
+    {
+        std::basic_string<typename To::char_type> target;
+        auto result = unicons::convert(name.begin(),name.end(),std::back_inserter(target),unicons::conv_flags::strict);
+        if (result.ec != unicons::conv_errc())
+        {
+            ec = result.ec;
+        }
+        return destination().key(target, context, ec);
+    }
+
+    bool visit_string(const string_view_type& value,
+                      semantic_tag tag,
+                      const ser_context& context,
+                      std::error_code& ec) override
+    {
+        std::basic_string<typename To::char_type> target;
+        auto result = unicons::convert(value.begin(),value.end(),std::back_inserter(target),unicons::conv_flags::strict);
+        if (result.ec != unicons::conv_errc())
+        {
+            JSONCONS_THROW(ser_error(result.ec));
+        }
+        return destination().string_value(target, tag, context, ec);
+    }
+
+    bool visit_byte_string(const byte_string_view& b, 
+                           semantic_tag tag,
+                           const ser_context& context,
+                           std::error_code& ec) override
+    {
+        return destination_->byte_string_value(b, tag, context, ec);
+    }
+
+    bool visit_byte_string(const byte_string_view& b, 
+                           uint64_t ext_tag,
+                           const ser_context& context,
+                           std::error_code& ec) override
+    {
+        return destination_->byte_string_value(b, ext_tag, context, ec);
+    }
+
+    bool visit_half(uint16_t value, semantic_tag tag, const ser_context& context, std::error_code& ec) override
+    {
+        return destination_->half_value(value, tag, context, ec);
+    }
+
+    bool visit_double(double value, semantic_tag tag, const ser_context& context, std::error_code& ec) override
+    {
+        return destination_->double_value(value, tag, context, ec);
+    }
+
+    bool visit_int64(int64_t value, semantic_tag tag, const ser_context& context, std::error_code& ec) override
+    {
+        return destination_->int64_value(value, tag, context, ec);
+    }
+
+    bool visit_uint64(uint64_t value, semantic_tag tag, const ser_context& context, std::error_code& ec) override
+    {
+        return destination_->uint64_value(value, tag, context, ec);
+    }
+
+    bool visit_bool(bool value, semantic_tag tag, const ser_context& context, std::error_code& ec) override
+    {
+        return destination_->bool_value(value, tag, context, ec);
+    }
+
+    bool visit_null(semantic_tag tag, const ser_context& context, std::error_code& ec) override
+    {
+        return destination_->null_value(tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const uint8_t>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_->typed_array(s, tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const uint16_t>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_->typed_array(s, tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const uint32_t>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_->typed_array(s, tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const uint64_t>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_->typed_array(s, tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const int8_t>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_->typed_array(s, tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const int16_t>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_->typed_array(s, tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const int32_t>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_->typed_array(s, tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const int64_t>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_->typed_array(s, tag, context, ec);
+    }
+
+    bool visit_typed_array(half_arg_t, 
+                        const jsoncons::span<const uint16_t>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_->typed_array(half_arg, s, tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const float>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_->typed_array(s, tag, context, ec);
+    }
+
+    bool visit_typed_array(const jsoncons::span<const double>& s, 
+                        semantic_tag tag,
+                        const ser_context& context, 
+                        std::error_code& ec) override
+    {
+        return destination_->typed_array(s, tag, context, ec);
+    }
+
+    bool visit_begin_multi_dim(const jsoncons::span<const size_t>& shape,
+                            semantic_tag tag,
+                            const ser_context& context, 
+                            std::error_code& ec) override
+    {
+        return destination_->begin_multi_dim(shape, tag, context, ec);
+    }
+
+    bool visit_end_multi_dim(const ser_context& context,
+                          std::error_code& ec) override
+    {
+        return destination_->end_multi_dim(context, ec);
+    }
+
+};
+
+template <class From,class To>
+class json_visitor_adaptor<From,To,typename std::enable_if<std::is_convertible<To*,From*>::value>::type>
+{
+public:
+    using char_type = typename From::char_type;
+    using char_traits_type = typename From::char_traits_type;
+    using string_view_type = typename From::string_view_type;
+private:
+    To* destination_;
+public:
+    json_visitor_adaptor()
+        : destination_(nullptr)
+    {
+    }
+    json_visitor_adaptor(To& visitor)
+        : destination_(std::addressof(visitor))
+    {
+    }
+
+    operator From&() { return *destination_; }
+
+    // moveable
+    json_visitor_adaptor(json_visitor_adaptor&&) = default;
+    json_visitor_adaptor& operator=(json_visitor_adaptor&&) = default;
+
+    To& destination()
+    {
+        return *destination_;
+    }
+};
+
+template <class From,class To>
+json_visitor_adaptor<From,To> make_json_visitor_adaptor(To& to)
+{
+    return json_visitor_adaptor<From, To>(to);
+}
+
+using json_filter = basic_json_filter<char>;
+using wjson_filter = basic_json_filter<wchar_t>;
+using rename_object_key_filter = basic_rename_object_key_filter<char>;
+using wrename_object_key_filter = basic_rename_object_key_filter<wchar_t>;
 
 #if !defined(JSONCONS_NO_DEPRECATED)
-typedef basic_rename_object_member_filter<char> rename_name_filter;
-typedef basic_rename_object_member_filter<wchar_t> wrename_name_filter;
+template <class CharT>
+using basic_json_content_filter = basic_json_filter<CharT>;
+JSONCONS_DEPRECATED_MSG("Instead, use json_filter") typedef basic_json_filter<char> json_content_filter;
+JSONCONS_DEPRECATED_MSG("Instead, use wjson_filter") typedef basic_json_filter<wchar_t> wjson_content_filter;
+JSONCONS_DEPRECATED_MSG("Instead, use rename_object_key_filter") typedef basic_rename_object_key_filter<char> rename_name_filter;
+JSONCONS_DEPRECATED_MSG("Instead, use wrename_object_key_filter") typedef basic_rename_object_key_filter<wchar_t> wrename_name_filter;
+JSONCONS_DEPRECATED_MSG("Instead, use rename_object_key_filter") typedef basic_rename_object_key_filter<char> rename_object_member_filter;
+JSONCONS_DEPRECATED_MSG("Instead, use wrename_object_key_filter") typedef basic_rename_object_key_filter<wchar_t> wrename_object_member_filter;
 #endif
 
 }

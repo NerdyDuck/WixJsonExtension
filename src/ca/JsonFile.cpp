@@ -8,15 +8,16 @@ L"`JsonFile`.`Name`, `JsonFile`.`Value`, `JsonFile`.`ValueType`, `JsonFile`.`Fla
 L"WHERE `JsonFile`.`Component_`=`Component`.`Component` ORDER BY `File`, `Sequence`";
 enum eJsonFileQuery { jfqId = 1, jfqFile, jfqElementPath, jfqVerifyPath, jfqName, jfqValue, jfqValueType, jfqFlags, jfqComponent };
 
-static HRESULT RecursePath(
-    __in_z LPCWSTR wzPath,
+static HRESULT UpdateJsonFile(
     __in_z LPCWSTR wzId,
-    __in_z LPCWSTR wzComponent,
-    __in_z LPCWSTR wzProperty,
-    __in int iMode,
-    __inout DWORD* pdwCounter,
-    __inout MSIHANDLE* phTable,
-    __inout MSIHANDLE* phColumns
+    __in_z LPCWSTR wzFile,
+    __in_z LPCWSTR wzElementPath,
+    __in_z LPCWSTR wzVerifyPath,
+    __in_z LPCWSTR wzName,
+    __in_z LPCWSTR wzValue,
+    __in int iValueType,
+    __in int iFlags,
+    __in_z LPCWSTR wzComponent
 );
 
 
@@ -30,13 +31,15 @@ extern "C" UINT WINAPI JsonFile(
     PMSIHANDLE hView;
     PMSIHANDLE hRec;
     LPWSTR sczId = NULL;
+    LPWSTR sczFile = NULL;
+    LPWSTR sczElementPath = NULL;
+    LPWSTR sczVerifyPath = NULL;
+    LPWSTR sczName = NULL;
+    LPWSTR sczValue = NULL;
     LPWSTR sczComponent = NULL;
     LPWSTR sczProperty = NULL;
-    LPWSTR sczPath = NULL;
-    int iSeq = 0;
-    DWORD dwCounter = 0;
-    MSIHANDLE hTable = NULL;
-    MSIHANDLE hColumns = NULL;
+    int iValueType = 0;
+    int iFlags = 0;
 
     hr = WcaInitialize(hInstall, "JsonFile");
     ExitOnFailure(hr, "Failed to initialize JsonFile.");
@@ -55,19 +58,34 @@ extern "C" UINT WINAPI JsonFile(
     while (S_OK == (hr = WcaFetchRecord(hView, &hRec)))
     {
         hr = WcaGetRecordString(hRec, jfqId, &sczId);
-        ExitOnFailure(hr, "Failed to get remove folder identity.");
+        ExitOnFailure(hr, "Failed to get JsonFile identity.");
+
+        hr = WcaGetRecordFormattedString(hRec, jfqFile, &sczFile);
+        ExitOnFailure1(hr, "failed to get File for JsonFile with Id: %s", sczId);
+
+        hr = WcaGetRecordString(hRec, jfqElementPath, &sczElementPath);
+        ExitOnFailure1(hr, "Failed to get ElementPath for JsonFile with Id: %s", sczId);
+
+        hr = WcaGetRecordString(hRec, jfqVerifyPath, &sczVerifyPath);
+        ExitOnFailure1(hr, "Failed to get VerifyPath for JsonFile with Id: %s", sczId);
+
+        hr = WcaGetRecordString(hRec, jfqName, &sczName);
+        ExitOnFailure1(hr, "Failed to get Name for JsonFile with Id: %s", sczId);
+
+        hr = WcaGetRecordString(hRec, jfqValue, &sczValue);
+        ExitOnFailure1(hr, "Failed to get Value for JsonFile with Id: %s", sczId);
+
+        hr = WcaGetRecordInteger(hRec, jfqValueType, &iValueType);
+        ExitOnFailure1(hr, "Failed to get ValueType for JsonFile with Id: %s", sczId);
+
+        hr = WcaGetRecordInteger(hRec, jfqFlags, &iFlags);
+        ExitOnFailure1(hr, "Failed to get Flags for JsonFile with Id: %s", sczId);
 
         hr = WcaGetRecordString(hRec, jfqComponent, &sczComponent);
         ExitOnFailure(hr, "Failed to get remove folder component.");
 
-        //hr = WcaGetRecordInteger(hRec, jfqSeq, &iSeq);
-        //ExitOnFailure(hr, "Failed to get remove folder mode");
-
-        hr = WcaGetProperty(sczProperty, &sczPath);
-        ExitOnFailure2(hr, "Failed to resolve remove folder property: %S for row: %S", sczProperty, sczId);
-
-        hr = RecursePath(sczPath, sczId, sczComponent, sczProperty, iSeq, &dwCounter, &hTable, &hColumns);
-        ExitOnFailure2(hr, "Failed while navigating path: %S for row: %S", sczPath, sczId);
+        hr = UpdateJsonFile(sczId, sczFile, sczElementPath, sczVerifyPath, sczName, sczValue, iValueType, iFlags, sczComponent);
+        ExitOnFailure2(hr, "Failed while navigating path: %S for row: %S", sczFile, sczId);
     }
 
     // reaching the end of the list is actually a good thing, not an error
@@ -78,17 +96,6 @@ extern "C" UINT WINAPI JsonFile(
     ExitOnFailure(hr, "Failure occured while processing JsonFile table");
 
 LExit:
-    if (hColumns)
-    {
-        ::MsiCloseHandle(hColumns);
-    }
-
-    if (hTable)
-    {
-        ::MsiCloseHandle(hTable);
-    }
-
-    ReleaseStr(sczPath);
     ReleaseStr(sczProperty);
     ReleaseStr(sczComponent);
     ReleaseStr(sczId);
@@ -98,15 +105,16 @@ LExit:
 }
 
 
-static HRESULT RecursePath(
-    __in_z LPCWSTR wzPath,
+static HRESULT UpdateJsonFile(
     __in_z LPCWSTR wzId,
-    __in_z LPCWSTR wzComponent,
-    __in_z LPCWSTR wzProperty,
-    __in int iMode,
-    __inout DWORD* pdwCounter,
-    __inout MSIHANDLE* phTable,
-    __inout MSIHANDLE* phColumns
+    __in_z LPCWSTR wzFile,
+    __in_z LPCWSTR wzElementPath,
+    __in_z LPCWSTR wzVerifyPath,
+    __in_z LPCWSTR wzName,
+    __in_z LPCWSTR wzValue,
+    __in int iValueType,
+    __in int iFlags,
+    __in_z LPCWSTR wzComponent
 )
 {
     HRESULT hr = S_OK;
@@ -116,18 +124,19 @@ static HRESULT RecursePath(
     HANDLE hFind = INVALID_HANDLE_VALUE;
     WIN32_FIND_DATAW wfd;
     LPWSTR sczNext = NULL;
-    json j = NULL;
-    std::ifstream is("./input/booklist.json");
-
-    // First recurse down to all the child directories.
-    hr = StrAllocFormatted(&sczSearch, L"%s*", wzPath);
-    ExitOnFailure1(hr, "Failed to allocate file search string in path: %S", wzPath);
+    wjson j = NULL;
+    std::wifstream is(wzFile);
 
     // TODO: Add your custom action code here.
-    j = json::parse(is);
-    j.insert_or_assign("FirstName", "Joe");
+    j = wjson::parse(is);
+    j.insert_or_assign(wzName, wzValue);
 
-    //----------------
+    std::wofstream os(wzFile,
+        std::ios_base::out | std::ios_base::trunc);
+
+    j.dump(os);
+
+    os.close();
 
     er = ::GetLastError();
     if (ERROR_NO_MORE_FILES == er)
@@ -137,24 +146,8 @@ static HRESULT RecursePath(
     else
     {
         hr = HRESULT_FROM_WIN32(er);
-        ExitOnFailure1(hr, "Failed while looping through files in directory: %S", wzPath);
+        ExitOnFailure1(hr, "Failed while updating .json file: %S", wzFile);
     }
-
-    // Finally, set a property that points at our path.
-    hr = StrAllocFormatted(&sczDirProperty, L"_%s_%u", wzProperty, *pdwCounter);
-    ExitOnFailure1(hr, "Failed to allocate DirProperty for RemoveFiles table with property: %S.", wzProperty);
-
-    ++(*pdwCounter);
-
-    hr = WcaSetProperty(sczDirProperty, wzPath);
-    ExitOnFailure2(hr, "Failed to set DirProperty: %S with path: %S", sczDirProperty, wzPath);
-
-    // Add the row to remove any files and another row to remove the folder.
-    hr = WcaAddTempRecord(phTable, phColumns, L"RemoveFile", NULL, 1, 5, L"RfxFiles", wzComponent, L"*.*", sczDirProperty, iMode);
-    ExitOnFailure2(hr, "Failed to add row to remove all files for JsonFile row: %S under path:", wzId, wzPath);
-
-    hr = WcaAddTempRecord(phTable, phColumns, L"RemoveFile", NULL, 1, 5, L"RfxFolder", wzComponent, NULL, sczDirProperty, iMode);
-    ExitOnFailure2(hr, "Failed to add row to remove folder for JsonFile row: %S under path: %S", wzId, wzPath);
 
 LExit:
     if (INVALID_HANDLE_VALUE != hFind)

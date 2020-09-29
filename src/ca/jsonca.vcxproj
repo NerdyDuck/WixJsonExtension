@@ -51,7 +51,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>$(WIX)sdk\$(WixPlatformToolset)\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(WIX)sdk\$(WixPlatformToolset)\inc;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>JSONCONS_NO_DEPRECATED;WIN32;_DEBUG;_WINDOWS;_USRDLL;CUSTOMACTIONTEST_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -73,7 +73,7 @@
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>$(WIX)sdk\$(WixPlatformToolset)\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(WIX)sdk\$(WixPlatformToolset)\inc;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>JSONCONS_NO_DEPRECATEDWIN32;NDEBUG;_WINDOWS;_USRDLL;CUSTOMACTIONTEST_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
@@ -102,41 +102,126 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="CustomAction.def" />
+    <None Include="jsoncons\json_decoder.hpp.orig" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="jsoncons\detail\heap_only_string.hpp" />
-    <ClInclude Include="jsoncons\detail\number_parsers.hpp" />
-    <ClInclude Include="jsoncons\detail\number_printers.hpp" />
-    <ClInclude Include="jsoncons\detail\obufferedstream.hpp" />
-    <ClInclude Include="jsoncons\detail\type_traits_helper.hpp" />
-    <ClInclude Include="jsoncons\detail\unicode_traits.hpp" />
-    <ClInclude Include="jsoncons\detail\writer.hpp" />
+    <ClInclude Include="jsoncons\allocator_holder.hpp" />
+    <ClInclude Include="jsoncons\basic_json.hpp" />
+    <ClInclude Include="jsoncons\bigint.hpp" />
+    <ClInclude Include="jsoncons\byte_string.hpp" />
+    <ClInclude Include="jsoncons\config\binary_config.hpp" />
+    <ClInclude Include="jsoncons\config\compiler_support.hpp" />
+    <ClInclude Include="jsoncons\config\jsoncons_config.hpp" />
+    <ClInclude Include="jsoncons\config\version.hpp" />
+    <ClInclude Include="jsoncons\converter.hpp" />
+    <ClInclude Include="jsoncons\convert_error.hpp" />
+    <ClInclude Include="jsoncons\decode_json.hpp" />
+    <ClInclude Include="jsoncons\decode_traits.hpp" />
+    <ClInclude Include="jsoncons\detail\endian.hpp" />
+    <ClInclude Include="jsoncons\detail\grisu3.hpp" />
+    <ClInclude Include="jsoncons\detail\more_type_traits.hpp" />
+    <ClInclude Include="jsoncons\detail\optional.hpp" />
+    <ClInclude Include="jsoncons\detail\parse_number.hpp" />
+    <ClInclude Include="jsoncons\detail\span.hpp" />
+    <ClInclude Include="jsoncons\detail\string_view.hpp" />
+    <ClInclude Include="jsoncons\detail\string_wrapper.hpp" />
+    <ClInclude Include="jsoncons\detail\write_number.hpp" />
+    <ClInclude Include="jsoncons\encode_json.hpp" />
+    <ClInclude Include="jsoncons\encode_traits.hpp" />
     <ClInclude Include="jsoncons\json.hpp" />
-    <ClInclude Include="jsoncons\jsoncons_config.hpp" />
-    <ClInclude Include="jsoncons\jsoncons_utilities.hpp" />
+    <ClInclude Include="jsoncons\json_container_types.hpp" />
+    <ClInclude Include="jsoncons\json_content_handler.hpp" />
+    <ClInclude Include="jsoncons\json_cursor.hpp" />
     <ClInclude Include="jsoncons\json_decoder.hpp" />
-    <ClInclude Include="jsoncons\json_deserializer.hpp" />
-    <ClInclude Include="jsoncons\json_error_category.hpp" />
+    <ClInclude Include="jsoncons\json_encoder.hpp" />
+    <ClInclude Include="jsoncons\json_error.hpp" />
     <ClInclude Include="jsoncons\json_exception.hpp" />
     <ClInclude Include="jsoncons\json_filter.hpp" />
-    <ClInclude Include="jsoncons\json_input_handler.hpp" />
-    <ClInclude Include="jsoncons\json_output_handler.hpp" />
+    <ClInclude Include="jsoncons\json_fwd.hpp" />
+    <ClInclude Include="jsoncons\json_options.hpp" />
     <ClInclude Include="jsoncons\json_parser.hpp" />
     <ClInclude Include="jsoncons\json_reader.hpp" />
-    <ClInclude Include="jsoncons\json_serializer.hpp" />
-    <ClInclude Include="jsoncons\json_structures.hpp" />
+    <ClInclude Include="jsoncons\json_traits_macros.hpp" />
+    <ClInclude Include="jsoncons\json_traits_macros_deprecated.hpp" />
+    <ClInclude Include="jsoncons\json_type.hpp" />
     <ClInclude Include="jsoncons\json_type_traits.hpp" />
-    <ClInclude Include="jsoncons\parse_error_handler.hpp" />
-    <ClInclude Include="jsoncons\serialization_options.hpp" />
-    <ClInclude Include="jsoncons\serialization_traits.hpp" />
-    <ClInclude Include="jsoncons\version.hpp" />
-    <ClInclude Include="jsoncons_ext\jsonpath\jsonpath_error_category.hpp" />
+    <ClInclude Include="jsoncons\json_visitor.hpp" />
+    <ClInclude Include="jsoncons\json_visitor2.hpp" />
+    <ClInclude Include="jsoncons\pretty_print.hpp" />
+    <ClInclude Include="jsoncons\ser_context.hpp" />
+    <ClInclude Include="jsoncons\sink.hpp" />
+    <ClInclude Include="jsoncons\source.hpp" />
+    <ClInclude Include="jsoncons\staj_cursor.hpp" />
+    <ClInclude Include="jsoncons\staj_iterator.hpp" />
+    <ClInclude Include="jsoncons\tag_type.hpp" />
+    <ClInclude Include="jsoncons\unicode_traits.hpp" />
+    <ClInclude Include="jsoncons_ext\bson\bson.hpp" />
+    <ClInclude Include="jsoncons_ext\bson\bson_cursor.hpp" />
+    <ClInclude Include="jsoncons_ext\bson\bson_detail.hpp" />
+    <ClInclude Include="jsoncons_ext\bson\bson_encoder.hpp" />
+    <ClInclude Include="jsoncons_ext\bson\bson_error.hpp" />
+    <ClInclude Include="jsoncons_ext\bson\bson_options.hpp" />
+    <ClInclude Include="jsoncons_ext\bson\bson_parser.hpp" />
+    <ClInclude Include="jsoncons_ext\bson\bson_reader.hpp" />
+    <ClInclude Include="jsoncons_ext\bson\decode_bson.hpp" />
+    <ClInclude Include="jsoncons_ext\bson\encode_bson.hpp" />
+    <ClInclude Include="jsoncons_ext\cbor\cbor.hpp" />
+    <ClInclude Include="jsoncons_ext\cbor\cbor_cursor.hpp" />
+    <ClInclude Include="jsoncons_ext\cbor\cbor_detail.hpp" />
+    <ClInclude Include="jsoncons_ext\cbor\cbor_encoder.hpp" />
+    <ClInclude Include="jsoncons_ext\cbor\cbor_error.hpp" />
+    <ClInclude Include="jsoncons_ext\cbor\cbor_options.hpp" />
+    <ClInclude Include="jsoncons_ext\cbor\cbor_parser.hpp" />
+    <ClInclude Include="jsoncons_ext\cbor\cbor_reader.hpp" />
+    <ClInclude Include="jsoncons_ext\cbor\decode_cbor.hpp" />
+    <ClInclude Include="jsoncons_ext\cbor\encode_cbor.hpp" />
+    <ClInclude Include="jsoncons_ext\csv\csv.hpp" />
+    <ClInclude Include="jsoncons_ext\csv\csv_cursor.hpp" />
+    <ClInclude Include="jsoncons_ext\csv\csv_encoder.hpp" />
+    <ClInclude Include="jsoncons_ext\csv\csv_error.hpp" />
+    <ClInclude Include="jsoncons_ext\csv\csv_options.hpp" />
+    <ClInclude Include="jsoncons_ext\csv\csv_parser.hpp" />
+    <ClInclude Include="jsoncons_ext\csv\csv_reader.hpp" />
+    <ClInclude Include="jsoncons_ext\csv\csv_serializer.hpp" />
+    <ClInclude Include="jsoncons_ext\csv\decode_csv.hpp" />
+    <ClInclude Include="jsoncons_ext\csv\encode_csv.hpp" />
+    <ClInclude Include="jsoncons_ext\jmespath\jmespath.hpp" />
+    <ClInclude Include="jsoncons_ext\jmespath\jmespath_error.hpp" />
+    <ClInclude Include="jsoncons_ext\jsonpatch\jsonpatch.hpp" />
+    <ClInclude Include="jsoncons_ext\jsonpatch\jsonpatch_error.hpp" />
+    <ClInclude Include="jsoncons_ext\jsonpath\flatten.hpp" />
+    <ClInclude Include="jsoncons_ext\jsonpath\jsonpath.hpp" />
+    <ClInclude Include="jsoncons_ext\jsonpath\jsonpath_error.hpp" />
     <ClInclude Include="jsoncons_ext\jsonpath\jsonpath_filter.hpp" />
+    <ClInclude Include="jsoncons_ext\jsonpath\jsonpath_function.hpp" />
     <ClInclude Include="jsoncons_ext\jsonpath\json_query.hpp" />
     <ClInclude Include="jsoncons_ext\jsonpointer\jsonpointer.hpp" />
-    <ClInclude Include="jsoncons_ext\jsonpointer\jsonpointer_error_category.hpp" />
+    <ClInclude Include="jsoncons_ext\jsonpointer\jsonpointer_error.hpp" />
+    <ClInclude Include="jsoncons_ext\msgpack\decode_msgpack.hpp" />
+    <ClInclude Include="jsoncons_ext\msgpack\encode_msgpack.hpp" />
+    <ClInclude Include="jsoncons_ext\msgpack\msgpack.hpp" />
+    <ClInclude Include="jsoncons_ext\msgpack\msgpack_cursor.hpp" />
+    <ClInclude Include="jsoncons_ext\msgpack\msgpack_detail.hpp" />
+    <ClInclude Include="jsoncons_ext\msgpack\msgpack_encoder.hpp" />
+    <ClInclude Include="jsoncons_ext\msgpack\msgpack_error.hpp" />
+    <ClInclude Include="jsoncons_ext\msgpack\msgpack_options.hpp" />
+    <ClInclude Include="jsoncons_ext\msgpack\msgpack_parser.hpp" />
+    <ClInclude Include="jsoncons_ext\msgpack\msgpack_reader.hpp" />
+    <ClInclude Include="jsoncons_ext\ubjson\decode_ubjson.hpp" />
+    <ClInclude Include="jsoncons_ext\ubjson\encode_ubjson.hpp" />
+    <ClInclude Include="jsoncons_ext\ubjson\ubjson.hpp" />
+    <ClInclude Include="jsoncons_ext\ubjson\ubjson_cursor.hpp" />
+    <ClInclude Include="jsoncons_ext\ubjson\ubjson_detail.hpp" />
+    <ClInclude Include="jsoncons_ext\ubjson\ubjson_encoder.hpp" />
+    <ClInclude Include="jsoncons_ext\ubjson\ubjson_error.hpp" />
+    <ClInclude Include="jsoncons_ext\ubjson\ubjson_options.hpp" />
+    <ClInclude Include="jsoncons_ext\ubjson\ubjson_parser.hpp" />
+    <ClInclude Include="jsoncons_ext\ubjson\ubjson_reader.hpp" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="jsoncons_ext\jmespath\jmespath_error.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Import Project="$(WixNativeCATargetsPath)" Condition=" '$(WixNativeCATargetsPath)' != '' " />

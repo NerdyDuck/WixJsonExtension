@@ -4,1116 +4,1872 @@
 
 // See https://github.com/danielaparker/jsoncons for latest version
 
-#ifndef JSONCONS_JSONPATH_JSONQUERY_HPP
-#define JSONCONS_JSONPATH_JSONQUERY_HPP
+#ifndef JSONCONS_JSONPATH_JSON_QUERY_HPP
+#define JSONCONS_JSONPATH_JSON_QUERY_HPP
 
+#include <array> // std::array
 #include <string>
-#include <sstream>
 #include <vector>
-#include <istream>
-#include <cstdlib>
 #include <memory>
-#include "jsoncons/json.hpp"
-#include "jsonpath_filter.hpp"
-#include "jsonpath_error_category.hpp"
+#include <type_traits> // std::is_const
+#include <limits> // std::numeric_limits
+#include <utility> // std::move
+#include <regex>
+#include <set> // std::set
+#include <iterator> // std::make_move_iterator
+#include <jsoncons/json.hpp>
+#include <jsoncons_ext/jsonpath/jsonpath_filter.hpp>
+#include <jsoncons_ext/jsonpath/jsonpath_error.hpp>
+#include <jsoncons_ext/jsonpath/jsonpath_function.hpp>
 
 namespace jsoncons { namespace jsonpath {
 
-enum class result_type {value,path};
-
-template<class Json>
-Json json_query(const Json& root, const typename Json::string_view_type& path, result_type result_t = result_type::value)
-{
-    if (result_t == result_type::value)
+    struct slice
     {
-        detail::jsonpath_evaluator<Json,const Json&,detail::VoidPathConstructor<Json>> evaluator;
-        evaluator.evaluate(root,path.data(),path.length());
-        return evaluator.get_values();
-    }
-    else
-    {
-        detail::jsonpath_evaluator<Json,const Json&,detail::PathConstructor<Json>> evaluator;
-        evaluator.evaluate(root,path.data(),path.length());
-        return evaluator.get_normalized_paths();
-    }
-}
+        jsoncons::optional<int64_t> start_;
+        jsoncons::optional<int64_t> stop_;
+        int64_t step_;
 
-template<class Json, class T>
-void json_replace(Json& root, const typename Json::string_view_type& path, T&& new_value)
-{
-    detail::jsonpath_evaluator<Json,Json&,detail::VoidPathConstructor<Json>> evaluator;
-    evaluator.evaluate(root,path.data(),path.length());
-    evaluator.replace(std::forward<T>(new_value));
-}
-
-namespace detail {
-
-template<class CharT>
-bool try_string_to_index(const CharT *s, size_t length, size_t* value, bool* positive)
-{
-    static const size_t max_value = (std::numeric_limits<size_t>::max)();
-    static const size_t max_value_div_10 = max_value / 10;
-
-    size_t start = 0;
-    size_t n = 0;
-    if (length > 0)
-    {
-        if (s[start] == '-')
+        slice()
+            : start_(), stop_(), step_(1)
         {
-            *positive = false;
-            ++start;
+        }
+
+        slice(const jsoncons::optional<int64_t>& start, const jsoncons::optional<int64_t>& end, int64_t step) 
+            : start_(start), stop_(end), step_(step)
+        {
+        }
+
+        slice(const slice& other)
+            : start_(other.start_), stop_(other.stop_), step_(other.step_)
+        {
+        }
+
+        slice& operator=(const slice& rhs) 
+        {
+            if (this != &rhs)
+            {
+                if (rhs.start_)
+                {
+                    start_ = rhs.start_;
+                }
+                else
+                {
+                    start_.reset();
+                }
+                if (rhs.stop_)
+                {
+                    stop_ = rhs.stop_;
+                }
+                else
+                {
+                    stop_.reset();
+                }
+                step_ = rhs.step_;
+            }
+            return *this;
+        }
+
+        int64_t get_start(std::size_t size) const
+        {
+            if (start_)
+            {
+                auto len = *start_ >= 0 ? *start_ : (static_cast<int64_t>(size) + *start_);
+                return len <= static_cast<int64_t>(size) ? len : static_cast<int64_t>(size);
+            }
+            else
+            {
+                if (step_ >= 0)
+                {
+                    return 0;
+                }
+                else 
+                {
+                    return static_cast<int64_t>(size);
+                }
+            }
+        }
+
+        int64_t get_stop(std::size_t size) const
+        {
+            if (stop_)
+            {
+                auto len = *stop_ >= 0 ? *stop_ : (static_cast<int64_t>(size) + *stop_);
+                return len <= static_cast<int64_t>(size) ? len : static_cast<int64_t>(size);
+            }
+            else
+            {
+                return step_ >= 0 ? static_cast<int64_t>(size) : -1;
+            }
+        }
+
+        int64_t step() const
+        {
+            return step_; // Allow negative
+        }
+    };
+
+    enum class result_type {value,path};
+
+    template<class Json>
+    Json json_query(const Json& root, const typename Json::string_view_type& path, result_type result_t = result_type::value)
+    {
+        if (result_t == result_type::value)
+        {
+            jsoncons::jsonpath::detail::jsonpath_evaluator<Json,const Json&,detail::VoidPathConstructor<Json>> evaluator;
+            jsoncons::jsonpath::detail::jsonpath_resources<Json> resources;
+            evaluator.evaluate(resources, root, path);
+            return evaluator.get_values();
         }
         else
         {
-            *positive = true;
+            jsoncons::jsonpath::detail::jsonpath_evaluator<Json,const Json&,detail::PathConstructor<Json>> evaluator;
+            jsoncons::jsonpath::detail::jsonpath_resources<Json> resources;
+            evaluator.evaluate(resources, root, path);
+            return evaluator.get_normalized_paths();
         }
     }
-    if (length > start)
-    {
-        for (size_t i = start; i < length; ++i)
-        {
-            CharT c = s[i];
-            switch (c)
-            {
-            case '0':case '1':case '2':case '3':case '4':case '5':case '6':case '7':case '8':case '9':
-                {
-                    size_t x = c - '0';
-                    if (n > max_value_div_10)
-                    {
-                        return false;
-                    }
-                    n = n * 10;
-                    if (n > max_value - x)
-                    {
-                        return false;
-                    }
 
-                    n += x;
-                }
-                break;
-            default:
+    template<class Json, class T>
+    void json_replace(Json& root, const typename Json::string_view_type& path, T&& new_value)
+    {
+        jsoncons::jsonpath::detail::jsonpath_evaluator<Json,Json&,detail::VoidPathConstructor<Json>> evaluator;
+        jsoncons::jsonpath::detail::jsonpath_resources<Json> resources;
+        evaluator.evaluate(resources, root, path);
+        evaluator.replace(std::forward<T>(new_value));
+    }
+
+    namespace detail {
+     
+    enum class path_state 
+    {
+        start,
+        dot_or_left_bracket,
+        name_or_left_bracket,
+        name,
+        unquoted_name,
+        unquoted_name2,
+        single_quoted_name,
+        double_quoted_name,
+        bracketed_unquoted_name,
+        bracketed_unquoted_name2,
+        bracketed_single_quoted_name,
+        bracketed_double_quoted_name,
+        bracketed_name_or_path,
+        bracketed_wildcard_or_path,
+        wildcard_or_rpath_or_slice_or_filter,
+        slice_end_or_end_step,
+        slice_end,
+        slice_step,
+        slice_step2,
+        comma_or_right_bracket,
+        path_or_function_name,
+        function,
+        arg_or_right_paren,
+        path_argument,
+        unquoted_arg,
+        single_quoted_arg,
+        double_quoted_arg,
+        more_args_or_right_paren,
+        dot,
+        path,
+        path2,
+        path_single_quoted,
+        path_double_quoted
+    };
+
+    struct state_item
+    {
+        path_state state;
+        bool is_recursive_descent;
+        bool is_union;
+
+        state_item()
+            : state(path_state::start), is_recursive_descent(false), is_union(false)
+        {
+        }
+
+        explicit state_item(path_state state) noexcept
+            : state(state), is_recursive_descent(false), is_union(false)
+        {
+        }
+
+        state_item(path_state state, const state_item& parent) noexcept
+            : state(state), 
+              is_recursive_descent(parent.is_recursive_descent), 
+              is_union(parent.is_union)
+        {
+        }
+
+        state_item(const state_item&) = default;
+        state_item& operator=(const state_item&) = default;
+    };
+
+    JSONCONS_STRING_LITERAL(length_literal, 'l', 'e', 'n', 'g', 't', 'h')
+
+    template<class Json,
+             class JsonReference,
+             class PathCons>
+    class jsonpath_evaluator : public ser_context
+    {
+        using char_type = typename Json::char_type;
+        using char_traits_type = typename Json::char_traits_type;
+        using string_type = std::basic_string<char_type,char_traits_type>;
+        using string_view_type = typename Json::string_view_type;
+        using reference = JsonReference;
+        using pointer = typename std::conditional<std::is_const<typename std::remove_reference<JsonReference>::type>::value,typename Json::const_pointer,typename Json::pointer>::type;
+        using const_pointer = typename Json::const_pointer;
+
+        struct node_type
+        {
+            string_type path;
+            pointer val_ptr;
+
+            node_type() = default;
+            node_type(const string_type& p, const pointer& valp)
+                : path(p),val_ptr(valp)
+            {
+            }
+
+            node_type(string_type&& p, pointer&& valp) noexcept
+                : path(std::move(p)),val_ptr(valp)
+            {
+            }
+            node_type(const node_type&) = default;
+
+            node_type(node_type&& other) noexcept
+                : path(std::move(other.path)), val_ptr(other.val_ptr)
+            {
+
+            }
+            node_type& operator=(const node_type&) = default;
+
+            node_type& operator=(node_type&& other) noexcept
+            {
+                path.swap(other.path);
+                val_ptr = other.val_ptr;
+            }
+
+        };
+        using node_set = std::vector<node_type>;
+
+        struct node_less
+        {
+            bool operator()(const node_type& a, const node_type& b) const
+            {
+                return *(a.val_ptr) < *(b.val_ptr);
+            }
+        };
+
+        class selector_base
+        {
+        public:
+            virtual ~selector_base() noexcept = default;
+            virtual void select(jsonpath_resources<Json>& resources,
+                                const string_type& path, reference val, node_set& nodes) = 0;
+
+            virtual bool is_filter() const
+            {
                 return false;
-                break;
             }
-        }
-        *value = n;
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
+        };
 
-enum class path_state 
-{
-    start,
-    cr,
-    lf,
-    expect_dot_or_left_bracket,
-    expect_unquoted_name_or_left_bracket,
-    unquoted_name,
-    left_bracket_single_quoted_string,
-    left_bracket_double_quoted_string,
-    left_bracket,
-    left_bracket_start,
-    left_bracket_end,
-    left_bracket_end2,
-    left_bracket_step,
-    left_bracket_step2,
-    expect_comma_or_right_bracket,
-    dot
-};
-
-template<class Json,
-         class JsonReference=const Json&,
-         class PathCons=PathConstructor<Json>>
-class jsonpath_evaluator : private parsing_context
-{
-private:
-    typedef typename Json::char_type char_type;
-    typedef typename Json::char_traits_type char_traits_type;
-    typedef std::basic_string<char_type,char_traits_type> string_type;
-    typedef typename Json::string_view_type string_view_type;
-    typedef JsonReference reference;
-    using pointer = typename std::conditional<std::is_const<typename std::remove_reference<JsonReference>::type>::value,typename Json::const_pointer,typename Json::pointer>::type;
-    struct node_type
-    {
-        node_type() = default;
-        node_type(const string_type& p, const pointer& valp)
-            : skip_contained_object(false),path(p),val_ptr(valp)
+        class path_selector final : public selector_base
         {
-        }
-        node_type(string_type&& p, pointer&& valp)
-            : skip_contained_object(false),path(std::move(p)),val_ptr(valp)
-        {
-        }
-        node_type(const node_type&) = default;
-        node_type(node_type&&) = default;
-
-        bool skip_contained_object;
-        string_type path;
-        pointer val_ptr;
-    };
-    typedef std::vector<node_type> node_set;
-
-    static string_view_type length_literal() 
-    {
-        static const char_type data[] = {'l','e','n','g','t','h'};
-        return string_view_type{data,sizeof(data)/sizeof(char_type)};
-    }
-
-    class selector
-    {
-    public:
-        virtual ~selector()
-        {
-        }
-        virtual void select(node_type& node, const string_type& path, reference val,
-                            node_set& nodes, std::vector<std::shared_ptr<Json>>& temp_json_values) = 0;
-    };
-
-    class expr_selector final : public selector
-    {
-    private:
-         jsonpath_filter_expr<Json> result_;
-    public:
-        expr_selector(const jsonpath_filter_expr<Json>& result)
-            : result_(result)
-        {
-        }
-
-        void select(node_type& node, const string_type& path, reference val, 
-                    node_set& nodes, std::vector<std::shared_ptr<Json>>& temp_json_values) override
-        {
-            auto index = result_.eval(val);
-            if (index.template is<size_t>())
+        private:
+             std::basic_string<char_type> path_;
+        public:
+            path_selector(const std::basic_string<char_type>& path)
+                : path_(path)
             {
-                size_t start = index. template as<size_t>();
-                if (val.is_array() && start < val.size())
+            }
+
+            void select(jsonpath_resources<Json>& resources,
+                        const string_type& path, reference val, 
+                        node_set& nodes) override
+            {
+                std::error_code ec;
+                jsonpath_evaluator<Json,JsonReference,PathCons> e;
+                e.evaluate(resources, val, path_, ec);
+                if (!ec)
                 {
-                    nodes.emplace_back(PathCons()(path,start),std::addressof(val[start]));
-                }
-            }
-            else if (index.is_string())
-            {
-                name_selector selector(index.as_string_view(),true);
-                selector.select(node, path, val, nodes, temp_json_values);
-            }
-        }
-    };
-
-    class filter_selector final : public selector
-    {
-    private:
-         jsonpath_filter_expr<Json> result_;
-    public:
-        filter_selector(const jsonpath_filter_expr<Json>& result)
-            : result_(result)
-        {
-        }
-
-        void select(node_type& node, const string_type& path, reference val, 
-                    node_set& nodes, std::vector<std::shared_ptr<Json>>&) override
-        {
-            if (val.is_array())
-            {
-                node.skip_contained_object =true;
-                for (size_t i = 0; i < val.size(); ++i)
-                {
-                    if (result_.exists(val[i]))
+                    for (auto ptr : e.get_pointers())
                     {
-                        nodes.emplace_back(PathCons()(path,i),std::addressof(val[i]));
+                        nodes.emplace_back(PathCons()(path,path_),ptr);
                     }
                 }
             }
-            else if (val.is_object())
+        };
+
+        class expr_selector final : public selector_base
+        {
+        private:
+             jsonpath_filter_expr<Json> result_;
+        public:
+            expr_selector(const jsonpath_filter_expr<Json>& result)
+                : result_(result)
             {
-                if (!node.skip_contained_object)
+            }
+
+            void select(jsonpath_resources<Json>& resources,
+                        const string_type& path, reference val, 
+                        node_set& nodes) override
+            {
+                auto index = result_.eval(resources, val);
+                if (index.template is<std::size_t>())
                 {
-                    if (result_.exists(val))
+                    std::size_t start = index.template as<std::size_t>();
+                    if (val.is_array() && start < val.size())
+                    {
+                        nodes.emplace_back(PathCons()(path,start),std::addressof(val[start]));
+                    }
+                }
+                else if (index.is_string())
+                {
+                    name_selector selector(index.as_string_view());
+                    selector.select(resources, path, val, nodes);
+                }
+            }
+        };
+
+        class filter_selector final : public selector_base
+        {
+        private:
+             jsonpath_filter_expr<Json> result_;
+        public:
+            filter_selector(const jsonpath_filter_expr<Json>& result)
+                : result_(result)
+            {
+            }
+
+            bool is_filter() const override
+            {
+                return true;
+            }
+
+            void select(jsonpath_resources<Json>& resources,
+                        const string_type& path, reference val, 
+                        node_set& nodes) override
+            {
+                //std::cout << "filter_selector select ";
+                if (val.is_array())
+                {
+                    //std::cout << "from array \n";
+                    for (std::size_t i = 0; i < val.size(); ++i)
+                    {
+                        if (result_.exists(resources, val[i]))
+                        {
+                            nodes.emplace_back(PathCons()(path,i),std::addressof(val[i]));
+                        }
+                    }
+                }
+                else if (val.is_object())
+                {
+                    //std::cout << "from object \n";
+                    if (result_.exists(resources, val))
                     {
                         nodes.emplace_back(path, std::addressof(val));
                     }
                 }
-                else
+            }
+        };
+
+        class name_selector final : public selector_base
+        {
+        private:
+            string_type name_;
+        public:
+            name_selector(const string_view_type& name)
+                : name_(name)
+            {
+            }
+
+            void select(jsonpath_resources<Json>& resources,
+                        const string_type& path, reference val,
+                        node_set& nodes) override
+            {
+                //bool is_start_positive = true;
+
+                if (val.is_object() && val.contains(name_))
                 {
-                    node.skip_contained_object = false;
+                    nodes.emplace_back(PathCons()(path,name_),std::addressof(val.at(name_)));
                 }
-            }
-        }
-    };
-
-    class name_selector final : public selector
-    {
-    private:
-        string_type name_;
-        bool positive_start_;
-    public:
-        name_selector(const string_view_type& name, bool positive_start)
-            : name_(name), positive_start_(positive_start)
-        {
-        }
-
-        void select(node_type& node, const string_type& path, reference val,
-                    node_set& nodes,
-                    std::vector<std::shared_ptr<Json>>& temp_json_values) override
-        {
-            if (val.is_object() && val.count(name_) > 0)
-            {
-                nodes.emplace_back(PathCons()(path,name_),std::addressof(val.at(name_)));
-            }
-            else if (val.is_array())
-            {
-                size_t pos = 0;
-                if (try_string_to_index(name_.data(), name_.size(), &pos, &positive_start_))
+                else if (val.is_array())
                 {
-                    size_t index = positive_start_ ? pos : val.size() - pos;
-                    if (index < val.size())
+                    auto r = jsoncons::detail::to_integer_decimal<int64_t>(name_.data(), name_.size());
+                    if (r)
                     {
-                        nodes.emplace_back(PathCons()(path,index),std::addressof(val[index]));
+                        std::size_t index = (r.value() >= 0) ? static_cast<std::size_t>(r.value()) : static_cast<std::size_t>(static_cast<int64_t>(val.size()) + r.value());
+                        if (index < val.size())
+                        {
+                            nodes.emplace_back(PathCons()(path,index),std::addressof(val[index]));
+                        }
+                    }
+                    else if (name_ == length_literal<char_type>() && val.size() > 0)
+                    {
+                        pointer ptr = resources.create_temp(val.size());
+                        nodes.emplace_back(PathCons()(path, name_), ptr);
                     }
                 }
-                else if (name_ == length_literal() && val.size() > 0)
+                else if (val.is_string())
                 {
-                    auto temp = std::make_shared<Json>(val.size());
-                    temp_json_values.push_back(temp);
-                    nodes.emplace_back(PathCons()(path,name_),temp.get());
-                }
-            }
-            else if (val.is_string())
-            {
-                size_t pos = 0;
-                string_view_type sv = val.as_string_view();
-                if (try_string_to_index(name_.data(), name_.size(), &pos, &positive_start_))
-                {
-                    size_t index = positive_start_ ? pos : sv.size() - pos;
-                    auto sequence = unicons::sequence_at(sv.data(), sv.data() + sv.size(), index);
-                    if (sequence.length() > 0)
+                    string_view_type sv = val.as_string_view();
+                    auto r = jsoncons::detail::to_integer_decimal<int64_t>(name_.data(), name_.size());
+                    if (r)
                     {
-                        auto temp = std::make_shared<Json>(sequence.begin(),sequence.length());
-                        temp_json_values.push_back(temp);
-                        nodes.emplace_back(PathCons()(path,index),temp.get());
+                        std::size_t index = (r.value() >= 0) ? static_cast<std::size_t>(r.value()) : 
+                                                               static_cast<std::size_t>(static_cast<int64_t>(sv.size()) + r.value());
+                        auto sequence = unicons::sequence_at(sv.data(), sv.data() + sv.size(), index);
+                        if (sequence.length() > 0)
+                        {
+                            pointer ptr = resources.create_temp(sequence.begin(),sequence.length());
+                            nodes.emplace_back(PathCons()(path, index), ptr);
+                        }
+                    }
+                    else if (name_ == length_literal<char_type>() && sv.size() > 0)
+                    {
+                        std::size_t count = unicons::u32_length(sv.begin(),sv.end());
+                        pointer ptr = resources.create_temp(count);
+                        nodes.emplace_back(PathCons()(path, name_), ptr);
                     }
                 }
-                else if (name_ == length_literal() && sv.size() > 0)
+            }
+        };
+
+        class slice_selector final : public selector_base
+        {
+        private:
+            slice slice_;
+        public:
+            slice_selector(const slice& slic)
+                : slice_(slic) 
+            {
+            }
+
+            void select(jsonpath_resources<Json>&,
+                        const string_type& path, reference val,
+                        node_set& nodes) override
+            {
+                if (val.is_array())
                 {
-                    size_t count = unicons::u32_length(sv.begin(),sv.end());
-                    auto temp = std::make_shared<Json>(count);
-                    temp_json_values.push_back(temp);
-                    nodes.emplace_back(PathCons()(path,name_),temp.get());
+                    auto start = slice_.get_start(val.size());
+                    auto end = slice_.get_stop(val.size());
+                    auto step = slice_.step();
+
+                    if (step > 0)
+                    {
+                        if (start < 0)
+                        {
+                            start = 0;
+                        }
+                        if (end > static_cast<int64_t>(val.size()))
+                        {
+                            end = val.size();
+                        }
+                        for (int64_t i = start; i < end; i += step)
+                        {
+                            std::size_t j = static_cast<std::size_t>(i);
+                            nodes.emplace_back(PathCons()(path,j),std::addressof(val[j]));
+                        }
+                    }
+                    else if (step < 0)
+                    {
+                        if (start >= static_cast<int64_t>(val.size()))
+                        {
+                            start = static_cast<int64_t>(val.size()) - 1;
+                        }
+                        if (end < -1)
+                        {
+                            end = -1;
+                        }
+                        for (int64_t i = start; i > end; i += step)
+                        {
+                            std::size_t j = static_cast<std::size_t>(i);
+                            if (j < val.size())
+                            {
+                                nodes.emplace_back(PathCons()(path,j),std::addressof(val[j]));
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        function_table<Json,pointer> functions_;
+
+        node_set nodes_;
+        std::vector<node_set> stack_;
+        std::size_t line_;
+        std::size_t column_;
+        const char_type* begin_input_;
+        const char_type* end_input_;
+        const char_type* p_;
+        std::vector<std::unique_ptr<selector_base>> selectors_;
+        std::vector<std::unique_ptr<Json>> temp_json_values_;
+
+        using argument_type = std::vector<pointer>;
+        std::vector<argument_type> function_stack_;
+        std::vector<state_item> state_stack_;
+
+    public:
+        jsonpath_evaluator()
+            : line_(1), column_(1),
+              begin_input_(nullptr), end_input_(nullptr),
+              p_(nullptr)
+        {
+        }
+
+        jsonpath_evaluator(std::size_t line, std::size_t column)
+            : line_(line), column_(column),
+              begin_input_(nullptr), end_input_(nullptr),
+              p_(nullptr)
+        {
+        }
+
+        std::size_t line() const
+        {
+            return line_;
+        }
+
+        std::size_t column() const
+        {
+            return column_;
+        }
+
+        Json get_values() const
+        {
+            Json result = typename Json::array();
+
+            if (!stack_.empty())
+            {
+                result.reserve(stack_.back().size());
+                for (const auto& p : stack_.back())
+                {
+                    result.push_back(*(p.val_ptr));
+                }
+            }
+            return result;
+        }
+
+        std::vector<pointer> get_pointers() const
+        {
+            std::vector<pointer> result;
+
+            if (!stack_.empty())
+            {
+                result.reserve(stack_.back().size());
+                for (const auto& p : stack_.back())
+                {
+                    result.push_back(p.val_ptr);
+                }
+            }
+            return result;
+        }
+
+        void call_function(jsonpath_resources<Json>& resources, const string_type& function_name, std::error_code& ec)
+        {
+            auto f = functions_.get(function_name, ec);
+            if (ec)
+            {
+                return;
+            }
+            auto result = f(function_stack_, ec);
+            if (ec)
+            {
+                return;
+            }
+
+            string_type s = {'$'};
+            node_set v;
+            pointer ptr = resources.create_temp(std::move(result));
+            v.emplace_back(s,ptr);
+            stack_.push_back(v);
+        }
+
+        Json get_normalized_paths() const
+        {
+            Json result = typename Json::array();
+            if (!stack_.empty())
+            {
+                result.reserve(stack_.back().size());
+                for (const auto& p : stack_.back())
+                {
+                    result.push_back(p.path);
+                }
+            }
+            return result;
+        }
+
+        template <class T>
+        void replace(T&& new_value)
+        {
+            if (!stack_.empty())
+            {
+                for (std::size_t i = 0; i < stack_.back().size(); ++i)
+                {
+                    *(stack_.back()[i].val_ptr) = new_value;
                 }
             }
         }
-    };
 
-    class array_slice_selector final : public selector
-    {
-    private:
-        size_t start_;
-        bool positive_start_;
-        size_t end_;
-        bool positive_end_;
-        bool undefined_end_;
-        size_t step_;
-        bool positive_step_;
-    public:
-        array_slice_selector(size_t start, bool positive_start, 
-                             size_t end, bool positive_end,
-                             size_t step, bool positive_step,
-                             bool undefined_end)
-            : start_(start), positive_start_(positive_start),
-              end_(end), positive_end_(positive_end),undefined_end_(undefined_end),
-              step_(step), positive_step_(positive_step) 
+        void evaluate(jsonpath_resources<Json>& resources, reference root, const string_view_type& path)
         {
-        }
-
-        void select(node_type& node, const string_type& path, reference val,
-                    node_set& nodes,
-                    std::vector<std::shared_ptr<Json>>&) override
-        {
-            if (positive_step_)
+            std::error_code ec;
+            evaluate(resources, root, path.data(), path.length(), ec);
+            if (ec)
             {
-                end_array_slice1(path, val, nodes);
-            }
-            else
-            {
-                end_array_slice2(path, val, nodes);
+                JSONCONS_THROW(jsonpath_error(ec, line_, column_));
             }
         }
 
-        void end_array_slice1(const string_type& path, reference val, node_set& nodes)
+        void evaluate(jsonpath_resources<Json>& resources, reference root, const string_view_type& path, std::error_code& ec)
+        {
+            JSONCONS_TRY
+            {
+                evaluate(resources, root, path.data(), path.length(), ec);
+            }
+            JSONCONS_CATCH(...)
+            {
+                ec = jsonpath_errc::unidentified_error;
+            }
+        }
+     
+        void evaluate(jsonpath_resources<Json>& resources,
+                      reference root, 
+                      const char_type* path, 
+                      std::size_t length,
+                      std::error_code& ec)
+        {
+            state_stack_.emplace_back(path_state::start);
+
+            string_type function_name;
+            string_type buffer;
+
+            begin_input_ = path;
+            end_input_ = path + length;
+            p_ = begin_input_;
+
+            string_type s = {'$'};
+            node_set v;
+            v.emplace_back(std::move(s),std::addressof(root));
+            stack_.push_back(v);
+
+            slice slic;
+            std::size_t save_line = 1;
+            std::size_t save_column = 1;
+
+            while (p_ < end_input_)
+            {
+                switch (state_stack_.back().state)
+                {
+                    case path_state::start: 
+                    {
+                        switch (*p_)
+                        {
+                            case ' ':case '\t':case '\r':case '\n':
+                                advance_past_space_character();
+                                break;
+                            case '$':
+                            {
+                                state_stack_.emplace_back(path_state::dot_or_left_bracket, state_stack_.back());
+                                ++p_;
+                                ++column_;
+                                break;
+                            }
+                            default:
+                            {
+                                switch (*p_)
+                                {
+                                    case '.':
+                                    case '[':
+                                        ec = jsonpath_errc::expected_root;
+                                        return;
+                                    default: // might be function, validate name later
+                                        state_stack_.emplace_back(path_state::dot_or_left_bracket, state_stack_.back());
+                                        state_stack_.emplace_back(path_state::path_or_function_name, state_stack_.back());
+                                        break;
+                                }
+                                break;
+                            }
+
+                            return;
+                        };
+                        break;
+                    }
+                    case path_state::path_or_function_name:
+                        switch (*p_)
+                        {
+                            case ' ':case '\t':case '\r':case '\n':
+                            {
+                                selectors_.push_back(jsoncons::make_unique<name_selector>(buffer));
+                                apply_selectors(resources);
+                                buffer.clear();
+                                state_stack_.pop_back();
+                                advance_past_space_character();
+                                break;
+                            }
+                            case '(':
+                                state_stack_.back().state = path_state::arg_or_right_paren;
+                                function_name = std::move(buffer);
+                                buffer.clear();
+                                ++p_;
+                                ++column_;
+                                save_line = line_;
+                                save_column = column_;
+                                break;
+                            case '[':
+                            {
+                                if (buffer.size() > 0)
+                                {
+                                    selectors_.push_back(jsoncons::make_unique<name_selector>(buffer));
+                                    apply_selectors(resources);
+                                    buffer.clear();
+                                }
+                                slic.start_ = 0;
+                                buffer.clear();
+
+                                state_stack_.back().state = path_state::wildcard_or_rpath_or_slice_or_filter;
+                                ++p_;
+                                ++column_;
+                                break;
+                            }
+                            case '.':
+                            {
+                                if (buffer.size() > 0)
+                                {
+                                    selectors_.push_back(jsoncons::make_unique<name_selector>(buffer));
+                                    apply_selectors(resources);
+                                    buffer.clear();
+                                }
+                                state_stack_.back().state = path_state::dot;
+                                ++p_;
+                                ++column_;
+                                break;
+                            }
+                            case '*':
+                            {
+                                end_all();
+                                transfer_nodes();
+                                state_stack_.back().state = path_state::dot;
+                                ++p_;
+                                ++column_;
+                                break;
+                            }
+                            case '\'':
+                            {
+                                buffer.clear();
+                                state_stack_.back().state = path_state::single_quoted_name;
+                                ++p_;
+                                ++column_;
+                                break;
+                            }
+                            case '\"':
+                            {
+                                buffer.clear();
+                                state_stack_.back().state = path_state::double_quoted_name;
+                                ++p_;
+                                ++column_;
+                                break;
+                            }
+                            default:
+                                buffer.push_back(*p_);
+                                ++p_;
+                                ++column_;
+                                break;
+                        }
+                        break;
+                    case path_state::arg_or_right_paren:
+                        switch (*p_)
+                        {
+                            case ' ':case '\t':case '\r':case '\n':
+                                advance_past_space_character();
+                                break;
+                            case '$':
+                                buffer.clear();
+                                buffer.push_back(*p_);
+                                state_stack_.emplace_back(path_state::path_argument, state_stack_.back());
+                                ++p_;
+                                ++column_;
+                                break;
+                            case '\'':
+                                buffer.clear();
+                                buffer.push_back('\"');
+                                state_stack_.back().state = path_state::more_args_or_right_paren;
+                                state_stack_.emplace_back(path_state::single_quoted_arg, state_stack_.back());
+                                ++p_;
+                                ++column_;
+                                break;
+                            case '\"':
+                                buffer.clear();
+                                buffer.push_back('\"');
+                                state_stack_.back().state = path_state::more_args_or_right_paren;
+                                state_stack_.emplace_back(path_state::double_quoted_arg, state_stack_.back());
+                                ++p_;
+                                ++column_;
+                                break;
+                            case ')':
+                            {
+                                jsonpath_evaluator<Json,JsonReference,PathCons> evaluator(save_line, save_column);
+                                evaluator.evaluate(resources, root, buffer, ec);
+                                if (ec)
+                                {
+                                    line_ = evaluator.line();
+                                    column_ = evaluator.column();
+                                    return;
+                                }
+                                function_stack_.push_back(evaluator.get_pointers());
+
+                                call_function(resources, function_name, ec);
+                                if (ec)
+                                {
+                                    return;
+                                }
+                                state_stack_.pop_back();
+                                ++p_;
+                                ++column_;
+                                break;
+                            }
+                            default:
+                                buffer.clear();
+                                state_stack_.back().state = path_state::more_args_or_right_paren;
+                                state_stack_.emplace_back(path_state::unquoted_arg, state_stack_.back());
+                                ++p_;
+                                ++column_;
+                                break;
+                        }
+                        break;
+                    case path_state::path_argument:
+                        switch (*p_)
+                        {
+                            case ',':
+                            {
+                                jsonpath_evaluator<Json, JsonReference, PathCons> evaluator;
+                                evaluator.evaluate(resources, root, buffer, ec);
+                                if (ec)
+                                {
+                                    return;
+                                }
+                                function_stack_.push_back(evaluator.get_pointers());
+                                state_stack_.pop_back();
+                                ++p_;
+                                ++column_;
+                                break;
+                            }
+                            case ')':
+                            {
+                                state_stack_.pop_back();
+                                break;
+                            }
+                            default:
+                                buffer.push_back(*p_); // path_argument
+                                ++p_;
+                                ++column_;
+                                break;
+                        }
+                        break;
+                    case path_state::unquoted_arg:
+                        switch (*p_)
+                        {
+                            case ',':
+                                JSONCONS_TRY
+                                {
+                                    auto val = Json::parse(buffer);
+                                    auto temp = resources.create_temp(val);
+                                    function_stack_.push_back(std::vector<pointer>{temp});
+                                }
+                                JSONCONS_CATCH(const ser_error&)     
+                                {
+                                    ec = jsonpath_errc::argument_parse_error;
+                                    return;
+                                }
+                                buffer.clear();
+                                //state_ = path_state::arg_or_right_paren;
+                                state_stack_.pop_back();
+                                break;
+                            case ')':
+                            {
+                                JSONCONS_TRY
+                                {
+                                    auto val = Json::parse(buffer);
+                                    auto temp = resources.create_temp(val);
+                                    function_stack_.push_back(std::vector<pointer>{temp});
+                                }
+                                JSONCONS_CATCH(const ser_error&)     
+                                {
+                                    ec = jsonpath_errc::argument_parse_error;
+                                    return;
+                                }
+                                call_function(resources, function_name, ec);
+                                if (ec)
+                                {
+                                    return;
+                                }
+                                state_stack_.pop_back();
+                                break;
+                            }
+                            default:
+                                buffer.push_back(*p_);
+                                break;
+                        }
+                        ++p_;
+                        ++column_;
+                        break;
+                    case path_state::single_quoted_arg:
+                        switch (*p_)
+                        {
+                            case '\'':
+                                buffer.push_back('\"');
+                                state_stack_.pop_back();
+                                break;
+                            case '\"':
+                                buffer.push_back('\\');
+                                buffer.push_back('\"');
+                                state_stack_.pop_back();
+                                break;
+                            default:
+                                buffer.push_back(*p_);
+                                break;
+                        }
+                        ++p_;
+                        ++column_;
+                        break;
+                    case path_state::double_quoted_arg:
+                        switch (*p_)
+                        {
+                            case '\"':
+                                buffer.push_back('\"');
+                                state_stack_.pop_back();
+                                break;
+                            default:
+                                buffer.push_back(*p_);
+                                break;
+                        }
+                        ++p_;
+                        ++column_;
+                        break;
+                    case path_state::more_args_or_right_paren:
+                        switch (*p_)
+                        {
+                            case ' ':case '\t':case '\r':case '\n':
+                                advance_past_space_character();
+                                break;
+                            case ',':
+                                JSONCONS_TRY
+                                {
+                                    auto val = Json::parse(buffer);
+                                    auto temp = resources.create_temp(val);
+                                    function_stack_.push_back(std::vector<pointer>{temp});
+                                }
+                                JSONCONS_CATCH(const ser_error&)     
+                                {
+                                    ec = jsonpath_errc::argument_parse_error;
+                                    return;
+                                }
+                                buffer.clear();
+                                //state_ = path_state::arg_or_right_paren;
+                                state_stack_.pop_back();
+                                ++p_;
+                                ++column_;
+                                break;
+                            case ')':
+                            {
+                                JSONCONS_TRY
+                                {
+                                    auto val = Json::parse(buffer);
+                                    auto temp = resources.create_temp(val);
+                                    function_stack_.push_back(std::vector<pointer>{temp});
+                                }
+                                JSONCONS_CATCH(const ser_error&)     
+                                {
+                                    ec = jsonpath_errc::argument_parse_error;
+                                    return;
+                                }
+                                call_function(resources, function_name, ec);
+                                if (ec)
+                                {
+                                    return;
+                                }
+                                state_stack_.pop_back();
+                                ++p_;
+                                ++column_;
+                                break;
+                            }
+                            default:
+                                ec = jsonpath_errc::invalid_filter_unsupported_operator;
+                                return;
+                        }
+                        break;
+                    case path_state::dot:
+                        switch (*p_)
+                        {
+                            case '.':
+                                state_stack_.back().is_recursive_descent = true;
+                                ++p_;
+                                ++column_;
+                                state_stack_.back().state = path_state::name_or_left_bracket;
+                                break;
+                            default:
+                                state_stack_.back().state = path_state::name;
+                                break;
+                        }
+                        break;
+                    case path_state::name_or_left_bracket: 
+                        switch (*p_)
+                        {
+                            case ' ':case '\t':case '\r':case '\n':
+                                advance_past_space_character();
+                                break;
+                            case '[': // [ can follow ..
+                                state_stack_.back().state = path_state::wildcard_or_rpath_or_slice_or_filter;
+                                ++p_;
+                                ++column_;
+                                break;
+                            default:
+                                buffer.clear();
+                                state_stack_.back().state = path_state::name;
+                                break;
+                        }
+                        break;
+                    case path_state::name: 
+                        switch (*p_)
+                        {
+                            case ' ':case '\t':case '\r':case '\n':
+                                advance_past_space_character();
+                                break;
+                            case '*':
+                                end_all();
+                                transfer_nodes();
+                                state_stack_.pop_back();
+                                ++p_;
+                                ++column_;
+                                break;
+                            case '\'':
+                                state_stack_.back().state = path_state::single_quoted_name;
+                                ++p_;
+                                ++column_;
+                                break;
+                            case '\"':
+                                state_stack_.back().state = path_state::double_quoted_name;
+                                ++p_;
+                                ++column_;
+                                break;
+                            case '[': 
+                            case '.':
+                                ec = jsonpath_errc::expected_key;
+                                return;
+                            default:
+                                buffer.clear();
+                                state_stack_.back().state = path_state::unquoted_name;
+                                break;
+                        }
+                        break;
+                    case path_state::dot_or_left_bracket: 
+                        switch (*p_)
+                        {
+                            case ' ':case '\t':case '\r':case '\n':
+                                advance_past_space_character();
+                                break;
+                            case '.':
+                                state_stack_.emplace_back(path_state::dot, state_stack_.back());
+                                ++p_;
+                                ++column_;
+                                break;
+                            case '[':
+                                state_stack_.emplace_back(path_state::wildcard_or_rpath_or_slice_or_filter, state_stack_.back());
+                                ++p_;
+                                ++column_;
+                                break;
+                            default:
+                                ec = jsonpath_errc::expected_separator;
+                                return;
+                        };
+                        break;
+                    case path_state::unquoted_name: 
+                        switch (*p_)
+                        {
+                            case '[':
+                            case '.':
+                            case ' ':case '\t':
+                            case '\r':
+                            case '\n':
+                                state_stack_.back().state = path_state::unquoted_name2;
+                                break;
+                            default:
+                                buffer.push_back(*p_);
+                                ++p_;
+                                ++column_;
+                                break;
+                        };
+                        break;
+                    case path_state::unquoted_name2: 
+                        switch (*p_)
+                        {
+                            case ' ':case '\t':case '\r':case '\n':
+                                advance_past_space_character();
+                                break;
+                            case '[':
+                                selectors_.push_back(jsoncons::make_unique<name_selector>(buffer));
+                                apply_selectors(resources);
+                                buffer.clear();
+                                slic.start_ = 0;
+                                buffer.clear();
+                                state_stack_.pop_back();
+                                break;
+                            case '.':
+                                selectors_.push_back(jsoncons::make_unique<name_selector>(buffer));
+                                apply_selectors(resources);
+                                buffer.clear();
+                                state_stack_.pop_back();
+                                break;
+                            default:
+                                ec = jsonpath_errc::expected_key;
+                                return;
+                        };
+                        break;
+                    case path_state::single_quoted_name:
+                        switch (*p_)
+                        {
+                            case '\'':
+                                selectors_.push_back(jsoncons::make_unique<name_selector>(buffer));
+                                apply_selectors(resources);
+                                buffer.clear();
+                                state_stack_.pop_back();
+                                break;
+                            case '\\':
+                                if (p_+1 < end_input_)
+                                {
+                                    ++p_;
+                                    ++column_;
+                                    buffer.push_back(*p_);
+                                }
+                                else
+                                {
+                                    ec = jsonpath_errc::unexpected_end_of_input;
+                                    return;
+                                }
+                                break;
+                            default:
+                                buffer.push_back(*p_);
+                                break;
+                        };
+                        ++p_;
+                        ++column_;
+                        break;
+                    case path_state::double_quoted_name: 
+                        switch (*p_)
+                        {
+                            case '\"':
+                                selectors_.push_back(jsoncons::make_unique<name_selector>(buffer));
+                                apply_selectors(resources);
+                                buffer.clear();
+                                state_stack_.pop_back();
+                                break;
+                            case '\\':
+                                if (p_+1 < end_input_)
+                                {
+                                    ++p_;
+                                    ++column_;
+                                    buffer.push_back(*p_);
+                                }
+                                else
+                                {
+                                    ec = jsonpath_errc::unexpected_end_of_input;
+                                    return;
+                                }
+                                break;
+                            default:
+                                buffer.push_back(*p_);
+                                break;
+                        };
+                        ++p_;
+                        ++column_;
+                        break;
+                    case path_state::comma_or_right_bracket:
+                        switch (*p_)
+                        {
+                            case ' ':case '\t':case '\r':case '\n':
+                                advance_past_space_character();
+                                break;
+                            case ',':
+                                state_stack_.back().is_union = true;
+                                state_stack_.back().state = path_state::wildcard_or_rpath_or_slice_or_filter;
+                                ++p_;
+                                ++column_;
+                                break;
+                            case ']':
+                                apply_selectors(resources);
+                                state_stack_.pop_back();
+                                ++p_;
+                                ++column_;
+                                break;
+                            default:
+                                ec = jsonpath_errc::expected_right_bracket;
+                                return;
+                        }
+                        break;
+                    case path_state::wildcard_or_rpath_or_slice_or_filter:
+                        switch (*p_)
+                        {
+                            case ' ':case '\t':case '\r':case '\n':
+                                advance_past_space_character();
+                                break;
+                            case '(':
+                            {
+                                jsonpath_filter_parser<Json> parser(line_,column_);
+                                auto result = parser.parse(resources, root, p_,end_input_,&p_);
+                                line_ = parser.line();
+                                column_ = parser.column();
+                                selectors_.push_back(jsoncons::make_unique<expr_selector>(result));
+                                state_stack_.back().state = path_state::comma_or_right_bracket;
+                                break;
+                            }
+                            case '?':
+                            {
+                                jsonpath_filter_parser<Json> parser(line_,column_);
+                                auto result = parser.parse(resources,root,p_,end_input_,&p_);
+                                line_ = parser.line();
+                                column_ = parser.column();
+                                selectors_.push_back(jsoncons::make_unique<filter_selector>(result));
+                                state_stack_.back().state = path_state::comma_or_right_bracket;
+                                break;                   
+                            }
+                            case ':':
+                                slic = slice{};
+                                buffer.clear();
+                                state_stack_.back().state = path_state::comma_or_right_bracket;
+                                state_stack_.emplace_back(path_state::slice_end_or_end_step, state_stack_.back());
+                                ++p_;
+                                ++column_;
+                                break;
+                            case '*':
+                                state_stack_.back().state = path_state::comma_or_right_bracket;
+                                state_stack_.emplace_back(path_state::bracketed_wildcard_or_path, state_stack_.back());
+                                ++p_;
+                                ++column_;
+                                break;
+                            case '\'':
+                                state_stack_.back().state = path_state::comma_or_right_bracket;
+                                state_stack_.emplace_back(path_state::bracketed_single_quoted_name, state_stack_.back());
+                                ++p_;
+                                ++column_;
+                                break;
+                            case '\"':
+                                state_stack_.back().state = path_state::comma_or_right_bracket;
+                                state_stack_.emplace_back(path_state::bracketed_double_quoted_name, state_stack_.back());
+                                ++p_;
+                                ++column_;
+                                break;
+                            default:
+                                slic = slice();
+                                buffer.clear();
+                                buffer.push_back(*p_);
+                                state_stack_.back().state = path_state::comma_or_right_bracket;
+                                state_stack_.emplace_back(path_state::bracketed_unquoted_name, state_stack_.back());
+                                ++p_;
+                                ++column_;
+                                break;
+                        }
+                        break;
+                    case path_state::bracketed_unquoted_name:
+                        switch (*p_)
+                        {
+                            case ' ':case '\t':case '\r':case '\n':
+                            case ':':
+                            case '.':
+                            case '[':
+                            case ',': 
+                            case ']': 
+                                state_stack_.back().state = path_state::bracketed_unquoted_name2;
+                                break;
+                            default:
+                                buffer.push_back(*p_);
+                                ++p_;
+                                ++column_;
+                                break;
+                        }
+                        break;
+                    case path_state::bracketed_unquoted_name2:
+                        switch (*p_)
+                        {
+                            case ' ':case '\t':case '\r':case '\n':
+                                advance_past_space_character();
+                                break;
+
+                            case ':':
+                            {
+                                auto r = jsoncons::detail::to_integer_decimal<int64_t>(buffer.data(), buffer.size());
+                                if (!r)
+                                {
+                                    ec = jsonpath_errc::expected_slice_start;
+                                    return;
+                                }
+                                slic.start_ = r.value();
+                                state_stack_.back().state = path_state::slice_end_or_end_step;
+                                ++p_;
+                                ++column_;
+                                break;
+                            }
+                            case '.':
+                            case '[':
+                            case ',': 
+                            case ']': 
+                                state_stack_.back().state = path_state::bracketed_name_or_path;
+                                break;
+                            default:
+                                ec = jsonpath_errc::expected_colon_dot_left_bracket_comma_or_right_bracket;
+                                break;
+                        }
+                        break;
+                    case path_state::bracketed_name_or_path:
+                        switch (*p_)
+                        {
+                            case ' ':case '\t':case '\r':case '\n':
+                                advance_past_space_character();
+                                break;
+                            case '.':
+                                buffer.push_back(*p_);
+                                state_stack_.back().state = path_state::path;
+                                ++p_;
+                                ++column_;
+                                break;
+                            case '[':
+                                buffer.push_back(*p_);
+                                state_stack_.back().state = path_state::path2;
+                                ++p_;
+                                ++column_;
+                                break;
+                            case ',': 
+                            case ']': 
+                                selectors_.push_back(jsoncons::make_unique<name_selector>(buffer));
+                                buffer.clear();
+                                state_stack_.pop_back();
+                                break;
+                            default:
+                                ec = jsonpath_errc::expected_right_bracket;
+                                return;
+                        }
+                        break;
+                    case path_state::bracketed_wildcard_or_path:
+                        switch (*p_)
+                        {
+                            case ' ':case '\t':case '\r':case '\n':
+                                advance_past_space_character();
+                                break;
+                            case '.':
+                                buffer.push_back('*');
+                                buffer.push_back(*p_);
+                                state_stack_.back().state = path_state::path;
+                                ++p_;
+                                ++column_;
+                                break;
+                            case '[':
+                                buffer.push_back('*');
+                                buffer.push_back(*p_);
+                                state_stack_.back().state = path_state::path2;
+                                ++p_;
+                                ++column_;
+                                break;
+                            case ',': 
+                            case ']': 
+                                end_all();
+                                state_stack_.pop_back();
+                                break;
+                            default:
+                                ec = jsonpath_errc::expected_right_bracket;
+                                return;
+                        }
+                        break;
+                    case path_state::path:
+                        switch (*p_)
+                        {
+                            case '\'':
+                                buffer.push_back(*p_);
+                                state_stack_.emplace_back(path_state::path_single_quoted, state_stack_.back());
+                                ++p_;
+                                ++column_;
+                                break;
+                            case '\"':
+                                buffer.push_back(*p_);
+                                state_stack_.emplace_back(path_state::path_double_quoted, state_stack_.back());
+                                ++p_;
+                                ++column_;
+                                break;
+                            case ',': 
+                            case ']': 
+                                if (!buffer.empty())
+                                {
+                                    selectors_.push_back(jsoncons::make_unique<path_selector>(buffer));
+                                    buffer.clear();
+                                }
+                                state_stack_.pop_back();
+                                break;
+                            default:
+                                buffer.push_back(*p_);
+                                ++p_;
+                                ++column_;
+                                break;
+                        }
+                        break;
+                    case path_state::path_double_quoted:
+                        switch (*p_)
+                        {
+                            case '\"': 
+                                buffer.push_back(*p_);
+                                state_stack_.pop_back();
+                                break;
+                            case '\\':
+                                if (p_+1 < end_input_)
+                                {
+                                    ++p_;
+                                    ++column_;
+                                    buffer.push_back(*p_);
+                                }
+                                else
+                                {
+                                    ec = jsonpath_errc::unexpected_end_of_input;
+                                    return;
+                                }
+                                break;
+                            default:
+                                buffer.push_back(*p_);
+                                break;
+                        }
+                        ++p_;
+                        ++column_;
+                        break;
+                    case path_state::path_single_quoted:
+                        switch (*p_)
+                        {
+                            case '\'': 
+                                buffer.push_back(*p_);
+                                state_stack_.pop_back();
+                                break;
+                            case '\\':
+                                if (p_+1 < end_input_)
+                                {
+                                    ++p_;
+                                    ++column_;
+                                    buffer.push_back(*p_);
+                                }
+                                else
+                                {
+                                    ec = jsonpath_errc::unexpected_end_of_input;
+                                    return;
+                                }
+                                break;
+                            default:
+                                buffer.push_back(*p_);
+                                break;
+                        }
+                        ++p_;
+                        ++column_;
+                        break;
+                    case path_state::path2:
+                        switch (*p_)
+                        {
+                            case ']': 
+                                buffer.push_back(*p_);
+                                state_stack_.back().state = path_state::path;
+                                break;
+                            default:
+                                buffer.push_back(*p_);
+                                break;
+                        }
+                        ++p_;
+                        ++column_;
+                        break;
+                    case path_state::slice_end_or_end_step:
+                        switch (*p_)
+                        {
+                            case '-':
+                                buffer.clear();
+                                buffer.push_back(*p_);
+                                state_stack_.back().state = path_state::slice_end;
+                                ++p_;
+                                ++column_;
+                                break;
+                            case '0':case '1':case '2':case '3':case '4':case '5':case '6':case '7':case '8':case '9':
+                                buffer.clear();
+                                buffer.push_back(*p_);
+                                state_stack_.back().state = path_state::slice_end;
+                                ++p_;
+                                ++column_;
+                                break;
+                            case ':':
+                                state_stack_.back().state = path_state::slice_step;
+                                ++p_;
+                                ++column_;
+                                break;
+                            case ',':
+                            case ']':
+                            {
+                                selectors_.push_back(jsoncons::make_unique<slice_selector>(slic));
+                                state_stack_.pop_back();
+                                break;
+                            }
+                            default:
+                                ec = jsonpath_errc::expected_minus_or_digit_or_colon_or_comma_or_right_bracket;
+                                return;
+                        }
+                        break;
+                    case path_state::slice_end:
+                        switch (*p_)
+                        {
+                            case ':':
+                            {
+                                auto r = jsoncons::detail::to_integer_decimal<int64_t>(buffer.data(), buffer.size());
+                                if (!r)
+                                {
+                                    ec = jsonpath_errc::expected_slice_end;
+                                    return;
+                                }
+                                slic.stop_ = jsoncons::optional<int64_t>(r.value());
+                                buffer.clear();
+                                state_stack_.back().state = path_state::slice_step;
+                                ++p_;
+                                ++column_;
+                                break;
+                            }
+                            case '0':case '1':case '2':case '3':case '4':case '5':case '6':case '7':case '8':case '9':
+                                buffer.push_back(*p_);
+                                ++p_;
+                                ++column_;
+                                break;
+                            case ',':
+                            case ']':
+                            {
+                                auto r = jsoncons::detail::to_integer_decimal<int64_t>(buffer.data(), buffer.size());
+                                if (!r || r.value() == 0)
+                                {
+                                    ec = jsonpath_errc::expected_slice_end;
+                                    return;
+                                }
+                                slic.stop_ = jsoncons::optional<int64_t>(r.value());
+                                selectors_.push_back(jsoncons::make_unique<slice_selector>(slic));
+                                state_stack_.pop_back();
+                                break;
+                            }
+                            default:
+                                ec = jsonpath_errc::expected_digit_or_colon_or_comma_or_right_bracket;
+                                return;
+                        }
+                        break;
+                    case path_state::slice_step:
+                        switch (*p_)
+                        {
+                            case '-':
+                                buffer.clear();
+                                state_stack_.back().state = path_state::slice_step2;
+                                buffer.push_back(*p_);
+                                ++p_;
+                                ++column_;
+                                break;
+                            default:
+                                buffer.clear();
+                                state_stack_.back().state = path_state::slice_step2;
+                                break;
+                        }
+                        break;
+                    case path_state::slice_step2:
+                        switch (*p_)
+                        {
+                            case '0':case '1':case '2':case '3':case '4':case '5':case '6':case '7':case '8':case '9':
+                                buffer.push_back(*p_);
+                                ++p_;
+                                ++column_;
+                                break;
+                            case ',':
+                            case ']':
+                            {
+                                if (!buffer.empty())
+                                {
+                                    auto r = jsoncons::detail::to_integer_decimal<int64_t>(buffer.data(), buffer.size());
+                                    if (!r)
+                                    {
+                                        ec = jsonpath_errc::expected_slice_step;
+                                        return;
+                                    }
+                                    if (r.value() == 0)
+                                    {
+                                        ec = jsonpath_errc::step_cannot_be_zero;
+                                        return;
+                                    }
+                                    slic.step_ = r.value();
+                                }
+                                selectors_.push_back(jsoncons::make_unique<slice_selector>(slic));
+                                state_stack_.pop_back();
+                                break;
+                            }
+                            default:
+                                ec = jsonpath_errc::expected_minus_or_digit_or_comma_or_right_bracket;
+                                return;
+                        }
+                        break;
+                    case path_state::bracketed_single_quoted_name:
+                        switch (*p_)
+                        {
+                            case '\'':
+                                state_stack_.back().state = path_state::bracketed_name_or_path;
+                                break;
+                            case '\\':
+                                if (p_+1 < end_input_)
+                                {
+                                    ++p_;
+                                    ++column_;
+                                    buffer.push_back(*p_);
+                                }
+                                else
+                                {
+                                    ec = jsonpath_errc::unexpected_end_of_input;
+                                    return;
+                                }
+                                break;
+                            default:
+                                buffer.push_back(*p_);
+                                break;
+                        };
+                        ++p_;
+                        ++column_;
+                        break;
+                    case path_state::bracketed_double_quoted_name: 
+                        switch (*p_)
+                        {
+                            case '\"':
+                                state_stack_.back().state = path_state::bracketed_name_or_path;
+                                break;
+                            case '\\':
+                                if (p_+1 < end_input_)
+                                {
+                                    ++p_;
+                                    ++column_;
+                                    buffer.push_back(*p_);
+                                }
+                                else
+                                {
+                                    ec = jsonpath_errc::unexpected_end_of_input;
+                                    return;
+                                }
+                                break;
+                            default:
+                                buffer.push_back(*p_);
+                                break;
+                        };
+                        ++p_;
+                        ++column_;
+                        break;
+                    default:
+                        ++p_;
+                        ++column_;
+                        break;
+                }
+            }
+
+            switch (state_stack_.back().state)
+            {
+                case path_state::unquoted_name: 
+                case path_state::unquoted_name2: 
+                {
+                    selectors_.push_back(jsoncons::make_unique<name_selector>(buffer));
+                    apply_selectors(resources);
+                    buffer.clear();
+                    state_stack_.pop_back(); // unquoted_name
+                    break;
+                }
+                default:
+                    break;
+            }
+
+            if (state_stack_.size() > 2)
+            {
+                ec = jsonpath_errc::unexpected_end_of_input;
+                return;
+            }
+
+            switch (state_stack_.back().state)
+            {
+                case path_state::start:
+                {
+                    JSONCONS_ASSERT(!stack_.empty());
+                    stack_.clear();
+                    JSONCONS_ASSERT(state_stack_.size() == 1);
+                    state_stack_.pop_back();
+                    break;
+                }
+                default:
+                {
+                    JSONCONS_ASSERT(state_stack_.size() == 2);
+                    state_stack_.pop_back(); 
+                    JSONCONS_ASSERT(state_stack_.back().state == path_state::start);
+                    state_stack_.pop_back();
+                    break;
+                }
+            }
+        }
+
+        void end_all()
+        {
+            for (const auto& node : stack_.back())
+            {
+                const auto& path = node.path;
+                pointer p = node.val_ptr;
+                end_all(path, *p);
+            }
+        }
+
+        void end_all(const string_type& path, reference val)
         {
             if (val.is_array())
             {
-                size_t start = positive_start_ ? start_ : val.size() - start_;
-                size_t end;
-                if (!undefined_end_)
+                for (auto it = val.array_range().begin(); it != val.array_range().end(); ++it)
                 {
-                    end = positive_end_ ? end_ : val.size() - end_;
-                }
-                else
-                {
-                    end = val.size();
-                }
-                for (size_t j = start; j < end; j += step_)
-                {
-                    if (j < val.size())
-                    {
-                        nodes.emplace_back(PathCons()(path,j),std::addressof(val[j]));
-                    }
+                    nodes_.emplace_back(PathCons()(path,it - val.array_range().begin()),std::addressof(*it));
                 }
             }
-        }
-
-        void end_array_slice2(const string_type& path, reference val, node_set& nodes)
-        {
-            if (val.is_array())
+            else if (val.is_object())
             {
-                size_t start = positive_start_ ? start_ : val.size() - start_;
-                size_t end;
-                if (!undefined_end_)
-                {
-                    end = positive_end_ ? end_ : val.size() - end_;
-                }
-                else
-                {
-                    end = val.size();
-                }
-
-                size_t j = end + step_ - 1;
-                while (j > (start+step_-1))
-                {
-                    j -= step_;
-                    if (j < val.size())
-                    {
-                        nodes.emplace_back(PathCons()(path,j),std::addressof(val[j]));
-                    }
-                }
-            }
-        }
-    };
-
-    default_parse_error_handler default_err_handler_;
-    parse_error_handler *err_handler_;
-    path_state state_;
-    string_type buffer_;
-    size_t start_;
-    bool positive_start_;
-    size_t end_;
-    bool positive_end_;
-    bool undefined_end_;
-    size_t step_;
-    bool positive_step_;
-    bool recursive_descent_;
-    node_set nodes_;
-    std::vector<node_set> stack_;
-    std::vector<std::shared_ptr<Json>> temp_json_values_;
-    size_t line_;
-    size_t column_;
-    const char_type* begin_input_;
-    const char_type* end_input_;
-    const char_type* p_;
-    std::vector<std::shared_ptr<selector>> selectors_;
-
-public:
-    jsonpath_evaluator()
-        : err_handler_(&default_err_handler_),
-          state_(path_state::start),
-          start_(0), positive_start_(true), 
-          end_(0), positive_end_(true), undefined_end_(false),
-          step_(0), positive_step_(true),
-          recursive_descent_(false),
-          line_(0), column_(0),
-          begin_input_(nullptr), end_input_(nullptr),
-          p_(nullptr)
-    {
-    }
-
-    Json get_values() const
-    {
-        Json result = typename Json::array();
-
-        if (stack_.size() > 0)
-        {
-            result.reserve(stack_.back().size());
-            for (const auto& p : stack_.back())
-            {
-                result.push_back(*(p.val_ptr));
-            }
-        }
-        return result;
-    }
-
-    Json get_normalized_paths() const
-    {
-        Json result = typename Json::array();
-        if (stack_.size() > 0)
-        {
-            result.reserve(stack_.back().size());
-            for (const auto& p : stack_.back())
-            {
-                result.push_back(p.path);
-            }
-        }
-        return result;
-    }
-
-    template <class T>
-    void replace(T&& new_value)
-    {
-        if (stack_.size() > 0)
-        {
-            for (size_t i = 0; i < stack_.back().size(); ++i)
-            {
-                *(stack_.back()[i].val_ptr) = new_value;
-            }
-        }
-    }
-
-    void evaluate(reference root, const string_view_type& path)
-    {
-        evaluate(root,path.data(),path.length());
-    }
-    void evaluate(reference root, const char_type* path)
-    {
-        evaluate(root,path,char_traits_type::length(path));
-    }
-
-    void evaluate(reference root, 
-                  const char_type* path, 
-                  size_t length)
-    {
-        std::error_code ec;
-        evaluate(root, path, length, ec);
-        if (ec)
-        {
-            throw parse_error(ec,line_,column_);
-        }
-    }
-
-    void evaluate(reference root, 
-                  const char_type* path, 
-                  size_t length,
-                  std::error_code& ec)
-    {
-        path_state pre_line_break_state = path_state::start;
-
-        begin_input_ = path;
-        end_input_ = path + length;
-        p_ = begin_input_;
-
-        line_ = 1;
-        column_ = 1;
-        state_ = path_state::start;
-
-        recursive_descent_ = false;
-
-        clear_index();
-
-        while (p_ < end_input_)
-        {
-            switch (state_)
-            {
-            case path_state::cr:
-                ++line_;
-                column_ = 1;
-                switch (*p_)
-                {
-                case '\n':
-                    state_ = pre_line_break_state;
-                    ++p_;
-                    ++column_;
-                    break;
-                default:
-                    state_ = pre_line_break_state;
-                    break;
-                }
-                break;
-            case path_state::lf:
-                ++line_;
-                column_ = 1;
-                state_ = pre_line_break_state;
-                break;
-            case path_state::start: 
-                switch (*p_)
-                {
-                case ' ':case '\t':
-                    break;
-                case '$':
-                case '@':
-                    {
-                        string_type s;
-                        s.push_back('$');
-                        node_set v;
-                        v.emplace_back(std::move(s),std::addressof(root));
-                        stack_.push_back(v);
-
-                        state_ = path_state::expect_dot_or_left_bracket;
-                    }
-                    break;
-                default:
-                    err_handler_->fatal_error(jsonpath_parser_errc::expected_root, *this);
-                    ec = jsonpath_parser_errc::expected_root;
-                    return;
-                };
-                ++p_;
-                ++column_;
-                break;
-            case path_state::dot:
-                switch (*p_)
-                {
-                case '.':
-                    recursive_descent_ = true;
-                    ++p_;
-                    ++column_;
-                    state_ = path_state::expect_unquoted_name_or_left_bracket;
-                    break;
-                default:
-                    state_ = path_state::expect_unquoted_name_or_left_bracket;
-                    break;
-                }
-                break;
-            case path_state::expect_unquoted_name_or_left_bracket:
-                switch (*p_)
-                {
-                case '.':
-                    err_handler_->fatal_error(jsonpath_parser_errc::expected_name, *this);
-                    ec = jsonpath_parser_errc::expected_name;
-                    return;
-                case '*':
-                    end_all();
-                    transfer_nodes();
-                    state_ = path_state::expect_dot_or_left_bracket;
-                    ++p_;
-                    ++column_;
-                    break;
-                case '[':
-                    state_ = path_state::left_bracket;
-                    ++p_;
-                    ++column_;
-                    break;
-                default:
-                    buffer_.clear();
-                    state_ = path_state::unquoted_name;
-                    break;
-                }
-                break;
-            case path_state::expect_dot_or_left_bracket: 
-                switch (*p_)
-                {
-                case ' ':case '\t':
-                    break;
-                case '.':
-                    state_ = path_state::dot;
-                    break;
-                case '[':
-                    state_ = path_state::left_bracket;
-                    break;
-                default:
-                    err_handler_->fatal_error(jsonpath_parser_errc::expected_separator, *this);
-                    ec = jsonpath_parser_errc::expected_separator;
-                    return;
-                };
-                ++p_;
-                ++column_;
-                break;
-            case path_state::expect_comma_or_right_bracket:
-                switch (*p_)
-                {
-                case ',':
-                    state_ = path_state::left_bracket;
-                    break;
-                case ']':
-                    apply_selectors();
-                    state_ = path_state::expect_dot_or_left_bracket;
-                    break;
-                case ' ':case '\t':
-                    break;
-                default:
-                    err_handler_->fatal_error(jsonpath_parser_errc::expected_right_bracket, *this);
-                    ec = jsonpath_parser_errc::expected_right_bracket;
-                    return;
-                }
-                ++p_;
-                ++column_;
-                break;
-            case path_state::left_bracket:
-                switch (*p_)
-                {
-                case ' ':case '\t':
-                    ++p_;
-                    ++column_;
-                    break;
-                case '(':
-                    {
-                        jsonpath_filter_parser<Json> parser(line_,column_);
-                        auto result = parser.parse(root, p_,end_input_,&p_);
-                        line_ = parser.line();
-                        column_ = parser.column();
-                        selectors_.push_back(std::make_shared<expr_selector>(result));
-                        state_ = path_state::expect_comma_or_right_bracket;
-                    }
-                    break;
-                case '?':
-                    {
-                        jsonpath_filter_parser<Json> parser(line_,column_);
-                        auto result = parser.parse(root,p_,end_input_,&p_);
-                        line_ = parser.line();
-                        column_ = parser.column();
-                        selectors_.push_back(std::make_shared<filter_selector>(result));
-                        state_ = path_state::expect_comma_or_right_bracket;
-                    }
-                    break;                   
-                case ':':
-                    clear_index();
-                    state_ = path_state::left_bracket_end;
-                    ++p_;
-                    ++column_;
-                    break;
-                case '*':
-                    end_all();
-                    state_ = path_state::expect_comma_or_right_bracket;
-                    ++p_;
-                    ++column_;
-                    break;
-                case '\'':
-                    state_ = path_state::left_bracket_single_quoted_string;
-                    ++p_;
-                    ++column_;
-                    break;
-                case '\"':
-                    state_ = path_state::left_bracket_double_quoted_string;
-                    ++p_;
-                    ++column_;
-                    break;
-                default:
-                    clear_index();
-                    buffer_.push_back(*p_);
-                    state_ = path_state::left_bracket_start;
-                    ++p_;
-                    ++column_;
-                    break;
-                }
-                break;
-            case path_state::left_bracket_start:
-                switch (*p_)
-                {
-                case ':':
-                    if (!try_string_to_index(buffer_.data(), buffer_.size(), &start_, &positive_start_))
-                    {
-                        err_handler_->fatal_error(jsonpath_parser_errc::expected_index, *this);
-                        ec = jsonpath_parser_errc::expected_index;
-                        return;
-                    }
-                    state_ = path_state::left_bracket_end;
-                    break;
-                case ',':
-                    selectors_.push_back(std::make_shared<name_selector>(buffer_,positive_start_));
-                    buffer_.clear();
-                    state_ = path_state::left_bracket;
-                    break;
-                case ']':
-                    selectors_.push_back(std::make_shared<name_selector>(buffer_,positive_start_));
-                    buffer_.clear();
-                    apply_selectors();
-                    state_ = path_state::expect_dot_or_left_bracket;
-                    break;
-                default:
-                    buffer_.push_back(*p_);
-                    break;
-                }
-                ++p_;
-                ++column_;
-                break;
-            case path_state::left_bracket_end:
-                switch (*p_)
-                {
-                case '-':
-                    positive_end_ = false;
-                    state_ = path_state::left_bracket_end2;
-                    break;
-                case ':':
-                    step_ = 0;
-                    state_ = path_state::left_bracket_step;
-                    break;
-                case '0':case '1':case '2':case '3':case '4':case '5':case '6':case '7':case '8':case '9':
-                    undefined_end_ = false;
-                    end_ = static_cast<size_t>(*p_-'0');
-                    state_ = path_state::left_bracket_end2;
-                    break;
-                case ',':
-                    selectors_.push_back(std::make_shared<array_slice_selector>(start_,positive_start_,end_,positive_end_,step_,positive_step_,undefined_end_));
-                    state_ = path_state::left_bracket;
-                    break;
-                case ']':
-                    selectors_.push_back(std::make_shared<array_slice_selector>(start_,positive_start_,end_,positive_end_,step_,positive_step_,undefined_end_));
-                    apply_selectors();
-                    state_ = path_state::expect_dot_or_left_bracket;
-                    break;
-                }
-                ++p_;
-                ++column_;
-                break;
-            case path_state::left_bracket_end2:
-                switch (*p_)
-                {
-                case ':':
-                    step_ = 0;
-                    state_ = path_state::left_bracket_step;
-                    break;
-                case '0':case '1':case '2':case '3':case '4':case '5':case '6':case '7':case '8':case '9':
-                    undefined_end_ = false;
-                    end_ = end_*10 + static_cast<size_t>(*p_-'0');
-                    break;
-                case ',':
-                    selectors_.push_back(std::make_shared<array_slice_selector>(start_,positive_start_,end_,positive_end_,step_,positive_step_,undefined_end_));
-                    state_ = path_state::left_bracket;
-                    break;
-                case ']':
-                    selectors_.push_back(std::make_shared<array_slice_selector>(start_,positive_start_,end_,positive_end_,step_,positive_step_,undefined_end_));
-                    apply_selectors();
-                    state_ = path_state::expect_dot_or_left_bracket;
-                    break;
-                }
-                ++p_;
-                ++column_;
-                break;
-            case path_state::left_bracket_step:
-                switch (*p_)
-                {
-                case '-':
-                    positive_step_ = false;
-                    state_ = path_state::left_bracket_step2;
-                    break;
-                case '0':case '1':case '2':case '3':case '4':case '5':case '6':case '7':case '8':case '9':
-                    step_ = static_cast<size_t>(*p_-'0');
-                    state_ = path_state::left_bracket_step2;
-                    break;
-                case ',':
-                    selectors_.push_back(std::make_shared<array_slice_selector>(start_,positive_start_,end_,positive_end_,step_,positive_step_,undefined_end_));
-                    state_ = path_state::left_bracket;
-                    break;
-                case ']':
-                    selectors_.push_back(std::make_shared<array_slice_selector>(start_,positive_start_,end_,positive_end_,step_,positive_step_,undefined_end_));
-                    apply_selectors();
-                    state_ = path_state::expect_dot_or_left_bracket;
-                    break;
-                }
-                ++p_;
-                ++column_;
-                break;
-            case path_state::left_bracket_step2:
-                switch (*p_)
-                {
-                case '0':case '1':case '2':case '3':case '4':case '5':case '6':case '7':case '8':case '9':
-                    step_ = step_*10 + static_cast<size_t>(*p_-'0');
-                    break;
-                case ',':
-                    selectors_.push_back(std::make_shared<array_slice_selector>(start_,positive_start_,end_,positive_end_,step_,positive_step_,undefined_end_));
-                    state_ = path_state::left_bracket;
-                    break;
-                case ']':
-                    selectors_.push_back(std::make_shared<array_slice_selector>(start_,positive_start_,end_,positive_end_,step_,positive_step_,undefined_end_));
-                    apply_selectors();
-                    state_ = path_state::expect_dot_or_left_bracket;
-                    break;
-                }
-                ++p_;
-                ++column_;
-                break;
-            case path_state::unquoted_name: 
-                switch (*p_)
-                {
-                case '[':
-                    apply_unquoted_string(buffer_);
-                    transfer_nodes();
-                    start_ = 0;
-                    state_ = path_state::left_bracket;
-                    break;
-                case '.':
-                    apply_unquoted_string(buffer_);
-                    transfer_nodes();
-                    state_ = path_state::dot;
-                    break;
-                case ' ':case '\t':
-                    apply_unquoted_string(buffer_);
-                    transfer_nodes();
-                    state_ = path_state::expect_dot_or_left_bracket;
-                    break;
-                case '\r':
-                    apply_unquoted_string(buffer_);
-                    transfer_nodes();
-                    pre_line_break_state = path_state::expect_dot_or_left_bracket;
-                    state_= path_state::cr;
-                    break;
-                case '\n':
-                    apply_unquoted_string(buffer_);
-                    transfer_nodes();
-                    pre_line_break_state = path_state::expect_dot_or_left_bracket;
-                    state_= path_state::lf;
-                    break;
-                default:
-                    buffer_.push_back(*p_);
-                    break;
-                };
-                ++p_;
-                ++column_;
-                break;
-            case path_state::left_bracket_single_quoted_string: 
-                switch (*p_)
-                {
-                case '\'':
-                    selectors_.push_back(std::make_shared<name_selector>(buffer_,positive_start_));
-                    buffer_.clear();
-                    state_ = path_state::expect_comma_or_right_bracket;
-                    break;
-                case '\\':
-                    buffer_.push_back(*p_);
-                    if (p_+1 < end_input_)
-                    {
-                        ++p_;
-                        ++column_;
-                        buffer_.push_back(*p_);
-                    }
-                    break;
-                default:
-                    buffer_.push_back(*p_);
-                    break;
-                };
-                ++p_;
-                ++column_;
-                break;
-            case path_state::left_bracket_double_quoted_string: 
-                switch (*p_)
-                {
-                case '\"':
-                    selectors_.push_back(std::make_shared<name_selector>(buffer_,positive_start_));
-                    buffer_.clear();
-                    state_ = path_state::expect_comma_or_right_bracket;
-                    break;
-                case '\\':
-                    buffer_.push_back(*p_);
-                    if (p_+1 < end_input_)
-                    {
-                        ++p_;
-                        ++column_;
-                        buffer_.push_back(*p_);
-                    }
-                    break;
-                default:
-                    buffer_.push_back(*p_);
-                    break;
-                };
-                ++p_;
-                ++column_;
-                break;
-            default:
-                ++p_;
-                ++column_;
-                break;
-            }
-        }
-        switch (state_)
-        {
-        case path_state::unquoted_name: 
-            {
-                apply_unquoted_string(buffer_);
-                transfer_nodes();
-            }
-            break;
-        default:
-            break;
-        }
-    }
-
-    void clear_index()
-    {
-        buffer_.clear();
-        start_ = 0;
-        positive_start_ = true;
-        end_ = 0;
-        positive_end_ = true;
-        undefined_end_ = true;
-        step_ = 1;
-        positive_step_ = true;
-    }
-
-    void end_all()
-    {
-        for (size_t i = 0; i < stack_.back().size(); ++i)
-        {
-            const auto& path = stack_.back()[i].path;
-            pointer p = stack_.back()[i].val_ptr;
-
-            if (p->is_array())
-            {
-                for (auto it = p->array_range().begin(); it != p->array_range().end(); ++it)
-                {
-                    nodes_.emplace_back(PathCons()(path,it - p->array_range().begin()),std::addressof(*it));
-                }
-            }
-            else if (p->is_object())
-            {
-                for (auto it = p->object_range().begin(); it != p->object_range().end(); ++it)
+                for (auto it = val.object_range().begin(); it != val.object_range().end(); ++it)
                 {
                     nodes_.emplace_back(PathCons()(path,it->key()),std::addressof(it->value()));
                 }
             }
-
-        }
-        start_ = 0;
-    }
-
-    void apply_unquoted_string(const string_view_type& name)
-    {
-        if (name.length() > 0)
-        {
-            for (size_t i = 0; i < stack_.back().size(); ++i)
+            if (state_stack_.back().is_recursive_descent)
             {
-                apply_unquoted_string(stack_.back()[i].path, *(stack_.back()[i].val_ptr), name);
-            }
-        }
-        buffer_.clear();
-    }
-
-    void apply_unquoted_string(const string_type& path, reference val, const string_view_type& name)
-    {
-        if (val.is_object())
-        {
-            if (val.count(name) > 0)
-            {
-                nodes_.emplace_back(PathCons()(path,name),std::addressof(val.at(name)));
-            }
-            if (recursive_descent_)
-            {
-                for (auto it = val.object_range().begin(); it != val.object_range().end(); ++it)
+                if (val.is_array())
                 {
-                    if (it->value().is_object() || it->value().is_array())
+                    for (auto it = val.array_range().begin(); it != val.array_range().end(); ++it)
                     {
-                        apply_unquoted_string(path, it->value(), name);
+                        end_all(PathCons()(path, it - val.array_range().begin()),*it);
                     }
                 }
-            }
-        }
-        else if (val.is_array())
-        {
-            size_t pos = 0;
-            if (try_string_to_index(name.data(),name.size(),&pos, &positive_start_))
-            {
-                size_t index = positive_start_ ? pos : val.size() - pos;
-                if (index < val.size())
+                else if (val.is_object())
                 {
-                    nodes_.emplace_back(PathCons()(path,index),std::addressof(val[index]));
-                }
-            }
-            else if (name == length_literal() && val.size() > 0)
-            {
-                auto temp = std::make_shared<Json>(val.size());
-                temp_json_values_.push_back(temp);
-                nodes_.emplace_back(PathCons()(path,name),temp.get());
-            }
-            if (recursive_descent_)
-            {
-                for (auto it = val.array_range().begin(); it != val.array_range().end(); ++it)
-                {
-                    if (it->is_object() || it->is_array())
+                    for (auto it = val.object_range().begin(); it != val.object_range().end(); ++it)
                     {
-                        apply_unquoted_string(path, *it, name);
+                        end_all(PathCons()(path,it->key()),it->value());
                     }
                 }
             }
         }
-        else if (val.is_string())
-        {
-            string_view_type sv = val.as_string_view();
-            size_t pos = 0;
-            if (try_string_to_index(name.data(),name.size(),&pos, &positive_start_))
-            {
-                auto sequence = unicons::sequence_at(sv.data(), sv.data() + sv.size(), pos);
-                if (sequence.length() > 0)
-                {
-                    auto temp = std::make_shared<Json>(sequence.begin(),sequence.length());
-                    temp_json_values_.push_back(temp);
-                    nodes_.emplace_back(PathCons()(path,pos),temp.get());
-                }
-            }
-            else if (name == length_literal() && sv.size() > 0)
-            {
-                size_t count = unicons::u32_length(sv.begin(),sv.end());
-                auto temp = std::make_shared<Json>(count);
-                temp_json_values_.push_back(temp);
-                nodes_.emplace_back(PathCons()(path,name),temp.get());
-            }
-        }
-    }
 
-    void apply_selectors()
-    {
-        if (selectors_.size() > 0)
+        void apply_selectors(jsonpath_resources<Json>& resources)
         {
-            for (size_t i = 0; i < stack_.back().size(); ++i)
+            //std::cout << "apply_selectors count: " << selectors_.size() << "\n";
+            if (selectors_.size() > 0)
             {
-                node_type& node = stack_.back()[i];
-                apply_selectors(node, node.path, *(node.val_ptr));
-            }
-            selectors_.clear();
-        }
-        transfer_nodes();
-    }
-
-    void apply_selectors(node_type& node, const string_type& path, reference val)
-    {
-        for (const auto& selector : selectors_)
-        {
-            selector->select(node, path, val, nodes_, temp_json_values_);
-        }
-        if (recursive_descent_)
-        {
-            if (val.is_object())
-            {
-                for (auto& nvp : val.object_range())
+                for (auto& node : stack_.back())
                 {
-                    if (nvp.value().is_object() || nvp.value().is_array())
-                    {                        
-                        apply_selectors(node,PathCons()(path,nvp.key()),nvp.value());
-                    }
-                }
-            }
-            else if (val.is_array())
-            {
-                for (auto& elem : val.array_range())
-                {
-                    if (elem.is_object() || elem.is_array())
+                    //std::cout << "apply selector to:\n" << pretty_print(*(node.val_ptr)) << "\n";
+                    for (auto& selector : selectors_)
                     {
-                        apply_selectors(node,path, elem);
+                        apply_selector(resources, node.path, *(node.val_ptr), *selector, true);
+                    }
+                }
+                selectors_.clear();
+            }
+            transfer_nodes();
+        }
+
+        void apply_selector(jsonpath_resources<Json>& resources,
+                            const string_type& path, 
+                            reference val, 
+                            selector_base& selector, 
+                            bool process)
+        {
+            if (process)
+            {
+                selector.select(resources, path, val, nodes_);
+            }
+            //std::cout << "*it: " << val << "\n";
+            //std::cout << "apply_selectors 1 done\n";
+            if (state_stack_.back().is_recursive_descent)
+            {
+                //std::cout << "is_recursive_descent\n";
+                if (val.is_object())
+                {
+                    //std::cout << "is_object\n";
+                    for (auto& nvp : val.object_range())
+                    {
+                        if (nvp.value().is_array() || nvp.value().is_object())
+                        {                        
+                            apply_selector(resources, PathCons()(path,nvp.key()), nvp.value(), selector, true);
+                        } 
+                    }
+                }
+                else if (val.is_array())
+                {
+                    //std::cout << "is_array\n";
+                    auto first = val.array_range().begin();
+                    auto last = val.array_range().end();
+                    for (auto it = first; it != last; ++it)
+                    {
+                        if (it->is_array())
+                        {
+                            apply_selector(resources, PathCons()(path,it - first), *it,selector, true);
+                            //std::cout << "*it: " << *it << "\n";
+                        }
+                        else if (it->is_object())
+                        {
+                            apply_selector(resources, PathCons()(path,it - first), *it, selector, !selector.is_filter());
+                        }
                     }
                 }
             }
         }
+
+        void transfer_nodes()
+        {
+            if (state_stack_.back().is_union)
+            {
+                std::set<node_type, node_less> index;
+                std::vector<node_type> temp;
+                for (const auto& node : nodes_)
+                {
+                    if (index.count(node) == 0)
+                    {
+                        temp.emplace_back(node);
+                        index.emplace(node);
+                    }
+                }
+                stack_.emplace_back(std::move(temp));
+            }
+            else
+            {
+                stack_.push_back(std::move(nodes_));
+            }
+            nodes_.clear();
+            state_stack_.back().is_recursive_descent = false;
+            state_stack_.back().is_union = false;
+        }
+
+        void advance_past_space_character()
+        {
+            switch (*p_)
+            {
+                case ' ':case '\t':
+                    ++p_;
+                    ++column_;
+                    break;
+                case '\r':
+                    if (p_+1 < end_input_ && *(p_+1) == '\n')
+                        ++p_;
+                    ++line_;
+                    column_ = 1;
+                    ++p_;
+                    break;
+                case '\n':
+                    ++line_;
+                    column_ = 1;
+                    ++p_;
+                    break;
+                default:
+                    break;
+            }
+        }
+    };
+
     }
 
-    void transfer_nodes()
-    {
-        stack_.push_back(nodes_);
-        nodes_.clear();
-        recursive_descent_ = false;
-    }
-
-    size_t do_line_number() const override
-    {
-        return line_;
-    }
-
-    size_t do_column_number() const override
-    {
-        return column_;
-    }
-
-};
-
-}
-
-}}
+} // namespace jsonpath
+} // namespace jsoncons
 
 #endif

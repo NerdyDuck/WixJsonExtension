@@ -7,101 +7,180 @@
 #ifndef JSON_EXCEPTION_HPP
 #define JSON_EXCEPTION_HPP
 
-#include <locale>
-#include <string>
-#include <vector>
-#include <cstdlib>
-#include <cwchar>
-#include <cstdint> 
-#include <iostream>
-#include <vector>
-#include <iterator>
-#include "jsoncons/detail/unicode_traits.hpp"
-#include "jsoncons/jsoncons_config.hpp"
+#include <string> // std::string
+#include <sstream> // std::ostringstream
+#include <system_error> // std::error_code
+#include <jsoncons/unicode_traits.hpp> // unicons::convert
+#include <jsoncons/config/jsoncons_config.hpp>
+#include <jsoncons/detail/more_type_traits.hpp>
 
 namespace jsoncons {
 
-// json_exception
+    // json_exception
 
-class json_exception 
-{
-public:
-    virtual const char* what() const JSONCONS_NOEXCEPT = 0;
-};
+    class json_exception
+    {
+    public:
+        virtual ~json_exception() noexcept = default;
+        virtual const char* what() const noexcept = 0;
+    };
 
-template <class Base>
-class json_exception_impl : public Base, public virtual json_exception
-{
-public:
-    json_exception_impl(const std::string& s) JSONCONS_NOEXCEPT
-        : Base(""), message_(s)
-    {
-    }
-    ~json_exception_impl() JSONCONS_NOEXCEPT
-    {
-    }
-    const char* what() const JSONCONS_NOEXCEPT override
-    {
-        return message_.c_str();
-    }
-private:
-    std::string message_;
-};
+    // json_runtime_error
 
-class key_not_found : public std::out_of_range, public virtual json_exception
-{
-public:
-    template <class CharT>
-    explicit key_not_found(const CharT* key, size_t length) JSONCONS_NOEXCEPT
-        : std::out_of_range("")
+    template <class Base, class Enable = void>
+    class json_runtime_error
     {
-        buffer_.append("Key '");
-        unicons::convert(key, key+length, std::back_inserter(buffer_),
-                         unicons::conv_flags::strict);
-        buffer_.append("' not found");
-    }
-    ~key_not_found() JSONCONS_NOEXCEPT
-    {
-    }
-    const char* what() const JSONCONS_NOEXCEPT override
-    {
-        return buffer_.c_str();
-    }
-private:
-    std::string buffer_;
-};
+    };
 
-class not_an_object : public std::runtime_error, public virtual json_exception
-{
-public:
-    template <class CharT>
-    explicit not_an_object(const CharT* key, size_t length) JSONCONS_NOEXCEPT
-        : std::runtime_error("")
+    template <class Base>
+    class json_runtime_error<Base,
+                             typename std::enable_if<std::is_convertible<Base*,std::exception*>::value &&
+                                                     jsoncons::detail::is_constructible_from_string<Base>::value>::type> 
+        : public Base, public virtual json_exception
     {
-        buffer_.append("Attempting to access or modify '");
-        unicons::convert(key, key+length, std::back_inserter(buffer_),
-                         unicons::conv_flags::strict);
-        buffer_.append("' on a value that is not an object");
-    }
-    ~not_an_object() JSONCONS_NOEXCEPT
+    public:
+        json_runtime_error(const std::string& s) noexcept
+            : Base(s)
+        {
+        }
+        ~json_runtime_error() noexcept
+        {
+        }
+        const char* what() const noexcept override
+        {
+            return Base::what();
+        }
+    };
+
+    class key_not_found : public std::out_of_range, public virtual json_exception
     {
-    }
-    const char* what() const JSONCONS_NOEXCEPT override
+    public:
+        template <class CharT>
+        explicit key_not_found(const CharT* key, std::size_t length) noexcept
+            : std::out_of_range("")
+        {
+            buffer_.append("Key '");
+            unicons::convert(key, key+length, std::back_inserter(buffer_),
+                             unicons::conv_flags::strict);
+            buffer_.append("' not found");
+        }
+        ~key_not_found() noexcept
+        {
+        }
+        const char* what() const noexcept override
+        {
+            return buffer_.c_str();
+        }
+    private:
+        std::string buffer_;
+    };
+
+    class not_an_object : public std::runtime_error, public virtual json_exception
     {
-        return buffer_.c_str();
-    }
-private:
-    std::string buffer_;
-};
+    public:
+        template <class CharT>
+        explicit not_an_object(const CharT* key, std::size_t length) noexcept
+            : std::runtime_error("")
+        {
+            buffer_.append("Attempting to access or modify '");
+            unicons::convert(key, key+length, std::back_inserter(buffer_),
+                             unicons::conv_flags::strict);
+            buffer_.append("' on a value that is not an object");
+        }
+        ~not_an_object() noexcept
+        {
+        }
+        const char* what() const noexcept override
+        {
+            return buffer_.c_str();
+        }
+    private:
+        std::string buffer_;
+    };
 
-#define JSONCONS_STR2(x)  #x
-#define JSONCONS_STR(x)  JSONCONS_STR2(x)
+    class ser_error : public std::system_error, public virtual json_exception
+    {
+    public:
+        ser_error(std::error_code ec)
+            : std::system_error(ec), line_number_(0), column_number_(0)
+        {
+        }
+        ser_error(std::error_code ec, const std::string& what_arg)
+            : std::system_error(ec, what_arg), line_number_(0), column_number_(0)
+        {
+        }
+        ser_error(std::error_code ec, std::size_t position)
+            : std::system_error(ec), line_number_(0), column_number_(position)
+        {
+        }
+        ser_error(std::error_code ec, std::size_t line, std::size_t column)
+            : std::system_error(ec), line_number_(line), column_number_(column)
+        {
+        }
+        ser_error(const ser_error& other) = default;
 
-#define JSONCONS_ASSERT(x) if (!(x)) { \
-    throw jsoncons::json_exception_impl<std::runtime_error>("assertion '" #x "' failed at " __FILE__ ":" \
-            JSONCONS_STR(__LINE__)); }
+        ser_error(ser_error&& other) = default;
 
-#define JSONCONS_THROW(x) throw (x)
+        const char* what() const noexcept override
+        {
+            JSONCONS_TRY
+            {
+                std::ostringstream os;
+                os << this->code().message();
+                if (line_number_ != 0 && column_number_ != 0)
+                {
+                    os << " at line " << line_number_ << " and column " << column_number_;
+                }
+                else if (column_number_ != 0)
+                {
+                    os << " at position " << column_number_;
+                }
+                const_cast<std::string&>(buffer_) = os.str();
+                return buffer_.c_str();
+            }
+            JSONCONS_CATCH(...)
+            {
+                return std::system_error::what();
+            }
+        }
 
-}
+        std::size_t line() const noexcept
+        {
+            return line_number_;
+        }
+
+        std::size_t column() const noexcept
+        {
+            return column_number_;
+        }
+
+    #if !defined(JSONCONS_NO_DEPRECATED)
+        JSONCONS_DEPRECATED_MSG("Instead, use line()")
+        std::size_t line_number() const noexcept
+        {
+            return line();
+        }
+
+        JSONCONS_DEPRECATED_MSG("Instead, use column()")
+        std::size_t column_number() const noexcept
+        {
+            return column();
+        }
+    #endif
+    private:
+        std::string buffer_;
+        std::size_t line_number_;
+        std::size_t column_number_;
+    };
+
+#if !defined(JSONCONS_NO_DEPRECATED)
+JSONCONS_DEPRECATED_MSG("Instead, use ser_error") typedef ser_error serialization_error;
+JSONCONS_DEPRECATED_MSG("Instead, use ser_error") typedef ser_error json_parse_exception;
+JSONCONS_DEPRECATED_MSG("Instead, use ser_error") typedef ser_error parse_exception;
+JSONCONS_DEPRECATED_MSG("Instead, use ser_error") typedef ser_error parse_error;
+typedef ser_error codec_error;
+#endif
+
+} // namespace jsoncons
+
 #endif

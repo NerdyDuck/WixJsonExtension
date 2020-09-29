@@ -8,47 +8,41 @@
 #define JSONCONS_JSON_DECODER_HPP
 
 #include <string>
-#include <sstream>
 #include <vector>
-#include <istream>
-#include <cstdlib>
-#include <memory>
-#include "jsoncons/json_exception.hpp"
-#include "jsoncons/json_input_handler.hpp"
+#include <type_traits> // std::true_type
+#include <memory> // std::allocator
+#include <iterator> // std::make_move_iterator
+#include <utility> // std::move
+#include <jsoncons/json_exception.hpp>
+#include <jsoncons/json_visitor.hpp>
 
 namespace jsoncons {
 
-template <class Json,class Allocator=std::allocator<typename Json::char_type>>
-class json_decoder final : public basic_json_input_handler<typename Json::char_type>
+template <class Json,class TempAllocator=std::allocator<char>>
+class json_decoder final : public basic_json_visitor<typename Json::char_type>
 {
 public:
-    typedef typename Json::char_type char_type;
-    using typename basic_json_input_handler<char_type>::string_view_type;
+    using char_type = typename Json::char_type;
+    using typename basic_json_visitor<char_type>::string_view_type;
 
-    typedef typename Json::key_value_pair_type key_value_pair_type;
-    typedef typename Json::key_storage_type key_storage_type;
-    typedef typename Json::string_type string_type;
-    typedef typename Json::array array;
-    typedef typename Json::object object;
-    typedef typename Json::allocator_type json_allocator_type;
-    typedef typename string_type::allocator_type json_string_allocator;
-    typedef typename array::allocator_type json_array_allocator;
-    typedef typename object::allocator_type json_object_allocator;
-
-    json_string_allocator string_allocator_;
-    json_object_allocator object_allocator_;
-    json_array_allocator array_allocator_;
-
-    Json result_;
-
+    using key_value_type = typename Json::key_value_type;
+    using key_type = typename Json::key_type;
+    using array = typename Json::array;
+    using object = typename Json::object;
+    using result_allocator_type = typename Json::allocator_type;
+    using json_string_allocator = typename key_type::allocator_type;
+    using json_array_allocator = typename array::allocator_type;
+    using json_object_allocator = typename object::allocator_type;
+    typedef typename std::allocator_traits<result_allocator_type>:: template rebind_alloc<uint8_t> json_byte_allocator_type;
+private:
     struct stack_item
     {
-        stack_item(key_storage_type&& name)
-            : name_(std::forward<key_storage_type>(name))
-        {
-        }
-        stack_item(Json&& value)
-            : value_(std::forward<Json>(value))
+        key_type name_;
+        Json value_;
+
+        template <class... Args>
+        stack_item(key_type&& name, Args&& ... args) 
+            : name_(std::move(name)), value_(std::forward<Args>(args)...)
         {
         }
 
@@ -57,36 +51,88 @@ public:
         stack_item(stack_item&&) = default;
         stack_item& operator=(const stack_item&) = default;
         stack_item& operator=(stack_item&&) = default;
-
-        key_storage_type name_;
-        Json value_;
     };
 
-    struct structure_offset
+    enum class structure_type {root_t, array_t, object_t};
+
+    struct structure_info
     {
-        size_t offset_;
-        bool is_object_;
+        structure_type type_;
+        std::size_t container_index_;
+
+        structure_info(structure_type type, std::size_t offset) noexcept
+            : type_(type), container_index_(offset)
+        {
+        }
+
     };
 
-    typedef Allocator allocator_type;
-    typedef typename std::allocator_traits<allocator_type>:: template rebind_alloc<stack_item> stack_item_allocator_type;
-    typedef typename std::allocator_traits<allocator_type>:: template rebind_alloc<structure_offset> size_t_allocator_type;
+    using temp_allocator_type = TempAllocator;
+    typedef typename std::allocator_traits<temp_allocator_type>:: template rebind_alloc<stack_item> stack_item_allocator_type;
+    typedef typename std::allocator_traits<temp_allocator_type>:: template rebind_alloc<structure_info> structure_info_allocator_type;
+ 
+    result_allocator_type result_allocator_;
+    temp_allocator_type temp_allocator_;
 
+    Json result_;
 
-    std::vector<stack_item,stack_item_allocator_type> stack_;
-    std::vector<structure_offset,size_t_allocator_type> stack_offsets_;
+    key_type name_;
+    std::vector<stack_item,stack_item_allocator_type> item_stack_;
+    std::vector<structure_info,structure_info_allocator_type> structure_stack_;
     bool is_valid_;
 
 public:
-    json_decoder(const json_allocator_type& jallocator = json_allocator_type())
-        : string_allocator_(jallocator),
-          object_allocator_(jallocator),
-          array_allocator_(jallocator),
+    json_decoder(const temp_allocator_type& temp_alloc = temp_allocator_type())
+        : result_allocator_(result_allocator_type()),
+          temp_allocator_(temp_alloc),
+          result_(),
+          name_(result_allocator_),
+          item_stack_(temp_allocator_),
+          structure_stack_(temp_allocator_),
           is_valid_(false) 
-
     {
-        stack_offsets_.reserve(100);
-        stack_.reserve(1000);
+        item_stack_.reserve(1000);
+        structure_stack_.reserve(100);
+        structure_stack_.emplace_back(structure_type::root_t, 0);
+    }
+
+    json_decoder(result_allocator_arg_t,
+                 const result_allocator_type& result_alloc)
+        : result_allocator_(result_alloc),
+          temp_allocator_(),
+          result_(),
+          name_(result_allocator_),
+          item_stack_(),
+          structure_stack_(),
+          is_valid_(false)
+    {
+        item_stack_.reserve(1000);
+        structure_stack_.reserve(100);
+        structure_stack_.emplace_back(structure_type::root_t, 0);
+    }
+
+    json_decoder(result_allocator_arg_t,
+                 const result_allocator_type& result_alloc, 
+                 const temp_allocator_type& temp_alloc)
+        : result_allocator_(result_alloc),
+          temp_allocator_(temp_alloc),
+          result_(),
+          name_(result_allocator_),
+          item_stack_(temp_allocator_),
+          structure_stack_(temp_allocator_),
+          is_valid_(false)
+    {
+        item_stack_.reserve(1000);
+        structure_stack_.reserve(100);
+        structure_stack_.emplace_back(structure_type::root_t, 0);
+    }
+
+    void reset()
+    {
+        is_valid_ = false;
+        item_stack_.clear();
+        structure_stack_.clear();
+        structure_stack_.emplace_back(structure_type::root_t, 0);
     }
 
     bool is_valid() const
@@ -96,11 +142,13 @@ public:
 
     Json get_result()
     {
+        JSONCONS_ASSERT(is_valid_);
         is_valid_ = false;
         return std::move(result_);
     }
 
 #if !defined(JSONCONS_NO_DEPRECATED)
+    JSONCONS_DEPRECATED_MSG("Instead, use get_result()")
     Json& root()
     {
         return result_;
@@ -109,199 +157,261 @@ public:
 
 private:
 
-    void push_object()
+    void visit_flush() override
     {
-        if (stack_offsets_.back().is_object_)
+    }
+
+    bool visit_begin_object(semantic_tag tag, const ser_context&, std::error_code&) override
+    {
+        if (structure_stack_.back().type_ == structure_type::root_t)
         {
-            stack_.back().value_ = Json(object(object_allocator_));
+            item_stack_.clear();
+            is_valid_ = false;
         }
-        else
-        {
-            stack_.push_back(Json(object(object_allocator_)));
-        }
-        stack_offsets_.push_back({stack_.size()-1,true});
+        item_stack_.emplace_back(std::forward<key_type>(name_), json_object_arg, tag, result_allocator_);
+        structure_stack_.emplace_back(structure_type::object_t, item_stack_.size()-1);
+        return true;
     }
 
-    void pop_object()
+    bool visit_end_object(const ser_context&, std::error_code&) override
     {
-        stack_.erase(stack_.begin()+stack_offsets_.back().offset_+1, stack_.end());
-        stack_offsets_.pop_back();
-    }
-
-    void push_array()
-    {
-        if (stack_offsets_.back().is_object_)
-        {
-            stack_.back().value_ = Json(array(array_allocator_));
-        }
-        else
-        {
-            stack_.push_back(Json(array(array_allocator_)));
-        }
-        stack_offsets_.push_back({stack_.size()-1,false});
-    }
-
-    void pop_array()
-    {
-        stack_.erase(stack_.begin()+stack_offsets_.back().offset_+1, stack_.end());
-        stack_offsets_.pop_back();
-    }
-
-    void do_begin_json() override
-    {
-        stack_offsets_.clear();
-        stack_.clear();
-        stack_offsets_.push_back({0,false});
-        is_valid_ = false;
-    }
-
-    void do_end_json() override
-    {
-        if (stack_.size() == 1)
-        {
-            result_.swap(stack_.front().value_);
-            stack_.pop_back();
-            is_valid_ = true;
-        }
-    }
-
-    void do_begin_object(const parsing_context&) override
-    {
-        push_object();
-    }
-
-    void do_end_object(const parsing_context&) override
-    {
-        end_structure();
-        pop_object();
-    }
-
-    void do_begin_array(const parsing_context&) override
-    {
-        push_array();
-    }
-
-    void do_end_array(const parsing_context&) override
-    {
-        end_structure();
-        pop_array();
-    }
-
-    void end_structure() 
-    {
-        JSONCONS_ASSERT(stack_offsets_.size() > 0);
-        const size_t structure_index = stack_offsets_.back().offset_;
-        JSONCONS_ASSERT(stack_.size() > structure_index);
-        const size_t count = stack_.size() - (structure_index + 1);
-
-        auto first = stack_.begin() + (structure_index+1);
+        JSONCONS_ASSERT(structure_stack_.size() > 0);
+        JSONCONS_ASSERT(structure_stack_.back().type_ == structure_type::object_t);
+        const size_t structure_index = structure_stack_.back().container_index_;
+        JSONCONS_ASSERT(item_stack_.size() > structure_index);
+        const size_t count = item_stack_.size() - (structure_index + 1);
+        auto first = item_stack_.begin() + (structure_index+1);
         auto last = first + count;
-        if (stack_offsets_.back().is_object_)
+        item_stack_[structure_index].value_.object_value().insert(
+            std::make_move_iterator(first),
+            std::make_move_iterator(last),
+            [](stack_item&& val){return key_value_type(std::move(val.name_), std::move(val.value_));}
+        );
+        item_stack_.erase(item_stack_.begin()+structure_index+1, item_stack_.end());
+        structure_stack_.pop_back();
+        if (structure_stack_.back().type_ == structure_type::root_t)
         {
-            stack_[structure_index].value_.object_value().insert(
-                std::make_move_iterator(first),
-                std::make_move_iterator(last),
-                [](stack_item&& val){return key_value_pair_type(std::move(val.name_),std::move(val.value_));});
+            result_.swap(item_stack_.front().value_);
+            item_stack_.pop_back();
+            is_valid_ = true;
+            return false;
         }
-        else
+        return true;
+    }
+
+    bool visit_begin_array(semantic_tag tag, const ser_context&, std::error_code&) override
+    {
+        if (structure_stack_.back().type_ == structure_type::root_t)
         {
-            auto& j = stack_[structure_index].value_;
-            j.reserve(count);
-            while (first != last)
+            item_stack_.clear();
+            is_valid_ = false;
+        }
+        item_stack_.emplace_back(std::forward<key_type>(name_), json_array_arg, tag, result_allocator_);
+        structure_stack_.emplace_back(structure_type::array_t, item_stack_.size()-1);
+        return true;
+    }
+
+    bool visit_end_array(const ser_context&, std::error_code&) override
+    {
+        JSONCONS_ASSERT(structure_stack_.size() > 1);
+        JSONCONS_ASSERT(structure_stack_.back().type_ == structure_type::array_t);
+        const size_t container_index = structure_stack_.back().container_index_;
+        JSONCONS_ASSERT(item_stack_.size() > container_index);
+
+        auto& container = item_stack_[container_index].value_;
+
+        const size_t size = item_stack_.size() - (container_index + 1);
+        //std::cout << "size on item stack: " << size << "\n";
+
+        if (size > 0)
+        {
+            container.reserve(size);
+            auto first = item_stack_.begin() + (container_index+1);
+            auto last = first + size;
+            for (auto it = first; it != last; ++it)
             {
-                j.push_back(std::move(first->value_));
-                ++first;
+                container.push_back(std::move(it->value_));
             }
+            item_stack_.erase(first, item_stack_.end());
         }
+
+        structure_stack_.pop_back();
+        if (structure_stack_.back().type_ == structure_type::root_t)
+        {
+            result_.swap(item_stack_.front().value_);
+            item_stack_.pop_back();
+            is_valid_ = true;
+            return false;
+        }
+        return true;
     }
 
-    void do_name(const string_view_type& name, const parsing_context&) override
+    bool visit_key(const string_view_type& name, const ser_context&, std::error_code&) override
     {
-        stack_.push_back(key_storage_type(name.begin(),name.end(),string_allocator_));
+        name_ = key_type(name.data(),name.length(),result_allocator_);
+        return true;
     }
 
-    void do_string_value(const string_view_type& val, const parsing_context&) override
+    bool visit_string(const string_view_type& sv, semantic_tag tag, const ser_context&, std::error_code&) override
     {
-        if (stack_offsets_.back().is_object_)
+        switch (structure_stack_.back().type_)
         {
-            stack_.back().value_ = Json(val.data(),val.length(),string_allocator_);
+            case structure_type::object_t:
+            case structure_type::array_t:
+                item_stack_.emplace_back(std::forward<key_type>(name_), sv, tag, result_allocator_);
+                break;
+            case structure_type::root_t:
+                result_ = Json(sv, tag, result_allocator_);
+                is_valid_ = true;
+                return false;
         }
-        else
-        {
-            stack_.push_back(Json(val.data(),val.length(),string_allocator_));
-        }
+        return true;
     }
 
-    void do_byte_string_value(const uint8_t* data, size_t length, const parsing_context&) override
+    bool visit_byte_string(const byte_string_view& b, 
+                           semantic_tag tag, 
+                           const ser_context&,
+                           std::error_code&) override
     {
-        if (stack_offsets_.back().is_object_)
+        switch (structure_stack_.back().type_)
         {
-            stack_.back().value_ = Json(data,length,string_allocator_);
+            case structure_type::object_t:
+            case structure_type::array_t:
+                item_stack_.emplace_back(std::forward<key_type>(name_), byte_string_arg, b, tag, result_allocator_);
+                break;
+            case structure_type::root_t:
+                result_ = Json(byte_string_arg, b, tag, result_allocator_);
+                is_valid_ = true;
+                return false;
         }
-        else
-        {
-            stack_.push_back(Json(data,length,string_allocator_));
-        }
+        return true;
     }
 
-    void do_integer_value(int64_t value, const parsing_context&) override
+    bool visit_byte_string(const byte_string_view& b, 
+                           uint64_t ext_tag, 
+                           const ser_context&,
+                           std::error_code&) override
     {
-        if (stack_offsets_.back().is_object_)
+        switch (structure_stack_.back().type_)
         {
-            stack_.back().value_ = value;
+            case structure_type::object_t:
+            case structure_type::array_t:
+                item_stack_.emplace_back(std::forward<key_type>(name_), byte_string_arg, b, ext_tag, result_allocator_);
+                break;
+            case structure_type::root_t:
+                result_ = Json(byte_string_arg, b, ext_tag, result_allocator_);
+                is_valid_ = true;
+                return false;
         }
-        else
-        {
-            stack_.push_back(Json(value));
-        }
+        return true;
     }
 
-    void do_uinteger_value(uint64_t value, const parsing_context&) override
+    bool visit_int64(int64_t value, 
+                        semantic_tag tag, 
+                        const ser_context&,
+                        std::error_code&) override
     {
-        if (stack_offsets_.back().is_object_)
+        switch (structure_stack_.back().type_)
         {
-            stack_.back().value_ = value;
+            case structure_type::object_t:
+            case structure_type::array_t:
+                item_stack_.emplace_back(std::forward<key_type>(name_), value, tag);
+                break;
+            case structure_type::root_t:
+                result_ = Json(value,tag);
+                is_valid_ = true;
+                return false;
         }
-        else
-        {
-            stack_.push_back(Json(value));
-        }
+        return true;
     }
 
-    void do_double_value(double value, const number_format& fmt, const parsing_context&) override
+    bool visit_uint64(uint64_t value, 
+                         semantic_tag tag, 
+                         const ser_context&,
+                         std::error_code&) override
     {
-        if (stack_offsets_.back().is_object_)
+        switch (structure_stack_.back().type_)
         {
-            stack_.back().value_ = Json(value,fmt);
+            case structure_type::object_t:
+            case structure_type::array_t:
+                item_stack_.emplace_back(std::forward<key_type>(name_), value, tag);
+                break;
+            case structure_type::root_t:
+                result_ = Json(value,tag);
+                is_valid_ = true;
+                return false;
         }
-        else
-        {
-            stack_.push_back(Json(value,fmt));
-        }
+        return true;
     }
 
-    void do_bool_value(bool value, const parsing_context&) override
+    bool visit_half(uint16_t value, 
+                       semantic_tag tag,   
+                       const ser_context&,
+                       std::error_code&) override
     {
-        if (stack_offsets_.back().is_object_)
+        switch (structure_stack_.back().type_)
         {
-            stack_.back().value_ = value;
+            case structure_type::object_t:
+            case structure_type::array_t:
+                item_stack_.emplace_back(std::forward<key_type>(name_), half_arg, value, tag);
+                break;
+            case structure_type::root_t:
+                result_ = Json(half_arg, value, tag);
+                is_valid_ = true;
+                return false;
         }
-        else
-        {
-            stack_.push_back(Json(value));
-        }
+        return true;
     }
 
-    void do_null_value(const parsing_context&) override
+    bool visit_double(double value, 
+                         semantic_tag tag,   
+                         const ser_context&,
+                         std::error_code&) override
     {
-        if (stack_offsets_.back().is_object_)
+        switch (structure_stack_.back().type_)
         {
-            stack_.back().value_ = Json::null();
+            case structure_type::object_t:
+            case structure_type::array_t:
+                item_stack_.emplace_back(std::forward<key_type>(name_), value, tag);
+                break;
+            case structure_type::root_t:
+                result_ = Json(value, tag);
+                is_valid_ = true;
+                return false;
         }
-        else
+        return true;
+    }
+
+    bool visit_bool(bool value, semantic_tag tag, const ser_context&, std::error_code&) override
+    {
+        switch (structure_stack_.back().type_)
         {
-            stack_.push_back(Json(Json::null()));
+            case structure_type::object_t:
+            case structure_type::array_t:
+                item_stack_.emplace_back(std::forward<key_type>(name_), value, tag);
+                break;
+            case structure_type::root_t:
+                result_ = Json(value, tag);
+                is_valid_ = true;
+                return false;
         }
+        return true;
+    }
+
+    bool visit_null(semantic_tag tag, const ser_context&, std::error_code&) override
+    {
+        switch (structure_stack_.back().type_)
+        {
+            case structure_type::object_t:
+            case structure_type::array_t:
+                item_stack_.emplace_back(std::forward<key_type>(name_), null_type(), tag);
+                break;
+            case structure_type::root_t:
+                result_ = Json(null_type(), tag);
+                is_valid_ = true;
+                return false;
+        }
+        return true;
     }
 };
 
