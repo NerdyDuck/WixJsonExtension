@@ -102,7 +102,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="CustomAction.def" />
-    <None Include="jsoncons\json_decoder.hpp.orig" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="jsoncons\allocator_holder.hpp" />

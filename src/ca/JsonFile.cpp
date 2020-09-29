@@ -25,11 +25,20 @@ extern "C" UINT WINAPI JsonFile(
     __in MSIHANDLE hInstall
 )
 {
-    //AssertSz(FALSE, "debug JsonFile");
-
     HRESULT hr = S_OK;
+    hr = WcaInitialize(hInstall, "JsonFile");
+
+    WcaLog(LOGMSG_STANDARD, "Entered JsonFile CA");
+    //AssertSz(FALSE, "debug JsonFile");
+        
+    WcaLog(LOGMSG_STANDARD, "Created PMSIHANDLE hView");
     PMSIHANDLE hView;
+
+    WcaLog(LOGMSG_STANDARD, "Created PMSIHANDLE hRec");
     PMSIHANDLE hRec;
+
+    WcaLog(LOGMSG_STANDARD, "MSIHANDLE's created for JsonFile CA");
+
     LPWSTR sczId = NULL;
     LPWSTR sczFile = NULL;
     LPWSTR sczElementPath = NULL;
@@ -37,11 +46,10 @@ extern "C" UINT WINAPI JsonFile(
     LPWSTR sczName = NULL;
     LPWSTR sczValue = NULL;
     LPWSTR sczComponent = NULL;
-    LPWSTR sczProperty = NULL;
+
     int iValueType = 0;
     int iFlags = 0;
-
-    hr = WcaInitialize(hInstall, "JsonFile");
+        
     ExitOnFailure(hr, "Failed to initialize JsonFile.");
 
     // anything to do?
@@ -57,33 +65,43 @@ extern "C" UINT WINAPI JsonFile(
 
     while (S_OK == (hr = WcaFetchRecord(hView, &hRec)))
     {
+        WcaLog(LOGMSG_STANDARD, "Getting JsonFile Id.");
         hr = WcaGetRecordString(hRec, jfqId, &sczId);
         ExitOnFailure(hr, "Failed to get JsonFile identity.");
 
+        WcaLog(LOGMSG_STANDARD, "Getting JsonFile File for Id:%ls", sczId);
         hr = WcaGetRecordFormattedString(hRec, jfqFile, &sczFile);
         ExitOnFailure1(hr, "failed to get File for JsonFile with Id: %s", sczId);
 
+        WcaLog(LOGMSG_STANDARD, "Getting JsonFile ElementPath for Id:%ls", sczId);
         hr = WcaGetRecordString(hRec, jfqElementPath, &sczElementPath);
         ExitOnFailure1(hr, "Failed to get ElementPath for JsonFile with Id: %s", sczId);
 
+        WcaLog(LOGMSG_STANDARD, "Getting JsonFile VerifyPath for Id:%ls", sczId);
         hr = WcaGetRecordString(hRec, jfqVerifyPath, &sczVerifyPath);
         ExitOnFailure1(hr, "Failed to get VerifyPath for JsonFile with Id: %s", sczId);
 
+        WcaLog(LOGMSG_STANDARD, "Getting JsonFile Name for Id:%ls", sczId);
         hr = WcaGetRecordString(hRec, jfqName, &sczName);
         ExitOnFailure1(hr, "Failed to get Name for JsonFile with Id: %s", sczId);
 
+        WcaLog(LOGMSG_STANDARD, "Getting JsonFile Value for Id:%ls", sczId);
         hr = WcaGetRecordString(hRec, jfqValue, &sczValue);
         ExitOnFailure1(hr, "Failed to get Value for JsonFile with Id: %s", sczId);
 
+        WcaLog(LOGMSG_STANDARD, "Getting JsonFile ValueType for Id:%ls", sczId);
         hr = WcaGetRecordInteger(hRec, jfqValueType, &iValueType);
         ExitOnFailure1(hr, "Failed to get ValueType for JsonFile with Id: %s", sczId);
 
+        WcaLog(LOGMSG_STANDARD, "Getting JsonFile Flags for Id:%ls", sczId);
         hr = WcaGetRecordInteger(hRec, jfqFlags, &iFlags);
         ExitOnFailure1(hr, "Failed to get Flags for JsonFile with Id: %s", sczId);
 
+        WcaLog(LOGMSG_STANDARD, "Getting JsonFile Component for Id:%ls", sczId);
         hr = WcaGetRecordString(hRec, jfqComponent, &sczComponent);
         ExitOnFailure(hr, "Failed to get remove folder component.");
 
+        WcaLog(LOGMSG_STANDARD, "Updating JsonFile for Id:%ls", sczId);
         hr = UpdateJsonFile(sczId, sczFile, sczElementPath, sczVerifyPath, sczName, sczValue, iValueType, iFlags, sczComponent);
         ExitOnFailure2(hr, "Failed while navigating path: %S for row: %S", sczFile, sczId);
     }
@@ -96,9 +114,25 @@ extern "C" UINT WINAPI JsonFile(
     ExitOnFailure(hr, "Failure occured while processing JsonFile table");
 
 LExit:
-    ReleaseStr(sczProperty);
-    ReleaseStr(sczComponent);
     ReleaseStr(sczId);
+    ReleaseStr(sczFile);
+    ReleaseStr(sczElementPath);
+    ReleaseStr(sczVerifyPath);
+    ReleaseStr(sczName);
+    ReleaseStr(sczValue);
+    ReleaseStr(sczComponent);
+
+    if (hView)
+    {
+        ::MsiCloseHandle(hView);
+        WcaLog(LOGMSG_STANDARD, "Closed PMSIHANDLE hView");
+    }
+
+    if (hRec)
+    {
+        ::MsiCloseHandle(hRec);
+        WcaLog(LOGMSG_STANDARD, "Closed PMSIHANDLE hRec");
+    }
 
     DWORD er = SUCCEEDED(hr) ? ERROR_SUCCESS : ERROR_INSTALL_FAILURE;
     return WcaFinalize(er);
@@ -118,45 +152,70 @@ static HRESULT UpdateJsonFile(
 )
 {
     HRESULT hr = S_OK;
-    DWORD er;
-    LPWSTR sczSearch = NULL;
-    LPWSTR sczDirProperty = NULL;
-    HANDLE hFind = INVALID_HANDLE_VALUE;
-    WIN32_FIND_DATAW wfd;
-    LPWSTR sczNext = NULL;
-    wjson j = NULL;
-    std::wifstream is(wzFile);
+    // DWORD er;
+    json j = NULL;
+    ::SetLastError(0);
 
-    // TODO: Add your custom action code here.
-    j = wjson::parse(is);
-    j.insert_or_assign(wzName, wzValue);
+    _bstr_t bFile(wzFile);
+    char* cFile = bFile;
 
-    std::wofstream os(wzFile,
+    _bstr_t bName(wzName);
+    char* cName = bName;
+
+    _bstr_t bValue(wzValue);
+    char* cValue = bValue;
+
+    std::ifstream is(cFile);
+    WcaLog(LOGMSG_STANDARD, "Created wifstream, %s", cFile);
+
+    json_reader reader(is);
+
+    std::error_code ec;
+    reader.read(ec);
+
+    if (ec)
+    {
+        WcaLog(LOGMSG_STANDARD, "%s on line %i and column %i", ec.message().c_str(), reader.line(), reader.column());
+        std::cout << ec.message()
+            << " on line " << reader.line()
+            << " and column " << reader.column()
+            << std::endl;
+    }
+
+    WcaLog(LOGMSG_STANDARD, "About to reset filestream");
+    // reset position after read to start performing actions
+    is.clear();
+    is.seekg(0);
+    WcaLog(LOGMSG_STANDARD, "Completed resetting filestream");
+
+    j = json::parse(is);
+    WcaLog(LOGMSG_STANDARD, "Parsed input stream, %s", j.as_string().c_str());
+
+    j.insert_or_assign(cName, cValue);
+    WcaLog(LOGMSG_STANDARD, "updated the json %s with values %s ", cName, cValue);
+
+    std::ofstream os(wzFile,
         std::ios_base::out | std::ios_base::trunc);
+    WcaLog(LOGMSG_STANDARD, "created output stream");
 
     j.dump(os);
+    WcaLog(LOGMSG_STANDARD, "dumped output stream");
 
     os.close();
+    WcaLog(LOGMSG_STANDARD, "closed output stream");
 
-    er = ::GetLastError();
-    if (ERROR_NO_MORE_FILES == er)
-    {
-        hr = S_OK;
-    }
-    else
-    {
-        hr = HRESULT_FROM_WIN32(er);
-        ExitOnFailure1(hr, "Failed while updating .json file: %S", wzFile);
-    }
+    //er = ::GetLastError();
+    //if (ERROR_NO_MORE_FILES == er)
+    //{
+    //    hr = S_OK;
+    //}
+    //else
+    //{
+    //    hr = HRESULT_FROM_WIN32(er);
+    //    ExitOnFailure1(hr, "Failed while updating .json file: %S", wzFile);
+    //}
 
-LExit:
-    if (INVALID_HANDLE_VALUE != hFind)
-    {
-        ::FindClose(hFind);
-    }
+//LExit:
 
-    ReleaseStr(sczNext);
-    ReleaseStr(sczDirProperty);
-    ReleaseStr(sczSearch);
     return hr;
 }

@@ -13,5 +13,6 @@
 #include <strutil.h>
 #include <iostream>
 #include <fstream>
+#include <comdef.h> 
 // TODO: reference additional headers your program requires here
 #include "jsoncons/json.hpp"
