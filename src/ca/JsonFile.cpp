@@ -4,21 +4,28 @@
 using namespace jsoncons;
 
 LPCWSTR vcsJsonFileQuery = L"SELECT `JsonFile`.`JsonFile`, `JsonFile`.`File`, `JsonFile`.`ElementPath`, `JsonFile`.`VerifyPath`, "
-L"`JsonFile`.`Name`, `JsonFile`.`Value`, `JsonFile`.`ValueType`, `JsonFile`.`Flags`, `JsonFile`.`Component_` FROM `JsonFile`,`Component`"
+L"`JsonFile`.`Value`, `JsonFile`.`ValueType`, `JsonFile`.`Flags`, `JsonFile`.`Component_` FROM `JsonFile`,`Component`"
 L"WHERE `JsonFile`.`Component_`=`Component`.`Component` ORDER BY `File`, `Sequence`";
-enum eJsonFileQuery { jfqId = 1, jfqFile, jfqElementPath, jfqVerifyPath, jfqName, jfqValue, jfqValueType, jfqFlags, jfqComponent };
+enum eJsonFileQuery { jfqId = 1, jfqFile, jfqElementPath, jfqVerifyPath, jfqValue, jfqValueType, jfqFlags, jfqComponent };
 
 static HRESULT UpdateJsonFile(
     __in_z LPCWSTR wzId,
     __in_z LPCWSTR wzFile,
     __in_z LPCWSTR wzElementPath,
     __in_z LPCWSTR wzVerifyPath,
-    __in_z LPCWSTR wzName,
     __in_z LPCWSTR wzValue,
     __in int iValueType,
     __in int iFlags,
     __in_z LPCWSTR wzComponent
 );
+void SetJsonPathValue(__in_z LPCWSTR wzFile, std::string sElementPath, __in_z LPCWSTR wzValue);
+
+const int FLAG_DELETEVALUE = 0;
+const int FLAG_SETVALUE = 1;
+const int FLAG_ADDARRAYVALUE = 2;
+const int FLAG_UNINSTALL = 3;
+const int FLAG_PRESERVEDATE = 4;
+const int FLAG_JSONPOINTER = 5;
 
 
 extern "C" UINT WINAPI JsonFile(
@@ -43,7 +50,6 @@ extern "C" UINT WINAPI JsonFile(
     LPWSTR sczFile = NULL;
     LPWSTR sczElementPath = NULL;
     LPWSTR sczVerifyPath = NULL;
-    LPWSTR sczName = NULL;
     LPWSTR sczValue = NULL;
     LPWSTR sczComponent = NULL;
 
@@ -81,10 +87,6 @@ extern "C" UINT WINAPI JsonFile(
         hr = WcaGetRecordString(hRec, jfqVerifyPath, &sczVerifyPath);
         ExitOnFailure1(hr, "Failed to get VerifyPath for JsonFile with Id: %s", sczId);
 
-        WcaLog(LOGMSG_STANDARD, "Getting JsonFile Name for Id:%ls", sczId);
-        hr = WcaGetRecordString(hRec, jfqName, &sczName);
-        ExitOnFailure1(hr, "Failed to get Name for JsonFile with Id: %s", sczId);
-
         WcaLog(LOGMSG_STANDARD, "Getting JsonFile Value for Id:%ls", sczId);
         hr = WcaGetRecordString(hRec, jfqValue, &sczValue);
         ExitOnFailure1(hr, "Failed to get Value for JsonFile with Id: %s", sczId);
@@ -102,7 +104,7 @@ extern "C" UINT WINAPI JsonFile(
         ExitOnFailure(hr, "Failed to get remove folder component.");
 
         WcaLog(LOGMSG_STANDARD, "Updating JsonFile for Id:%ls", sczId);
-        hr = UpdateJsonFile(sczId, sczFile, sczElementPath, sczVerifyPath, sczName, sczValue, iValueType, iFlags, sczComponent);
+        hr = UpdateJsonFile(sczId, sczFile, sczElementPath, sczVerifyPath, sczValue, iValueType, iFlags, sczComponent);
         ExitOnFailure2(hr, "Failed while navigating path: %S for row: %S", sczFile, sczId);
     }
 
@@ -118,7 +120,6 @@ LExit:
     ReleaseStr(sczFile);
     ReleaseStr(sczElementPath);
     ReleaseStr(sczVerifyPath);
-    ReleaseStr(sczName);
     ReleaseStr(sczValue);
     ReleaseStr(sczComponent);
 
@@ -144,7 +145,6 @@ static HRESULT UpdateJsonFile(
     __in_z LPCWSTR wzFile,
     __in_z LPCWSTR wzElementPath,
     __in_z LPCWSTR wzVerifyPath,
-    __in_z LPCWSTR wzName,
     __in_z LPCWSTR wzValue,
     __in int iValueType,
     __in int iFlags,
@@ -153,14 +153,11 @@ static HRESULT UpdateJsonFile(
 {
     HRESULT hr = S_OK;
     // DWORD er;
-    json j = NULL;
+    ojson j = NULL;
     ::SetLastError(0);
 
     _bstr_t bFile(wzFile);
     char* cFile = bFile;
-
-    _bstr_t bName(wzName);
-    char* cName = bName;
 
     _bstr_t bValue(wzValue);
     char* cValue = bValue;
@@ -182,40 +179,69 @@ static HRESULT UpdateJsonFile(
             << std::endl;
     }
 
-    WcaLog(LOGMSG_STANDARD, "About to reset filestream");
-    // reset position after read to start performing actions
-    is.clear();
-    is.seekg(0);
-    WcaLog(LOGMSG_STANDARD, "Completed resetting filestream");
+    is.close();
 
-    j = json::parse(is);
-    WcaLog(LOGMSG_STANDARD, "Parsed input stream, %s", j.as_string().c_str());
+    std::bitset<32> flags(iFlags);
+    WcaLog(LOGMSG_STANDARD, "Using the following flags, %i, %s", iFlags, flags.test(FLAG_SETVALUE) ? "true" : "false");
 
-    j.insert_or_assign(cName, cValue);
-    WcaLog(LOGMSG_STANDARD, "updated the json %s with values %s ", cName, cValue);
+    _bstr_t bElementPath(wzElementPath);
+    char* cElementPath = bElementPath;
 
-    std::ofstream os(wzFile,
-        std::ios_base::out | std::ios_base::trunc);
-    WcaLog(LOGMSG_STANDARD, "created output stream");
+    std::string elementPath(cElementPath);
 
-    j.dump(os);
-    WcaLog(LOGMSG_STANDARD, "dumped output stream");
+    WcaLog(LOGMSG_STANDARD, "Found ElementPath as %s", elementPath.c_str());
+    elementPath = std::regex_replace(elementPath, std::regex("[\\[]"), "[");
+    elementPath = std::regex_replace(elementPath, std::regex("[\\]]"), "]");
+    WcaLog(LOGMSG_STANDARD, "Updated ElementPath to %s", elementPath.c_str());
 
-    os.close();
-    WcaLog(LOGMSG_STANDARD, "closed output stream");
+    if (flags.test(FLAG_SETVALUE)) {
+        SetJsonPathValue(wzFile, elementPath.c_str(), wzValue);
+    }
+    else if (flags.test(FLAG_DELETEVALUE)){
 
-    //er = ::GetLastError();
-    //if (ERROR_NO_MORE_FILES == er)
-    //{
-    //    hr = S_OK;
-    //}
-    //else
-    //{
-    //    hr = HRESULT_FROM_WIN32(er);
-    //    ExitOnFailure1(hr, "Failed while updating .json file: %S", wzFile);
-    //}
+    }
+    else if (flags.test(FLAG_JSONPOINTER)) {
 
-//LExit:
+    }
 
     return hr;
+}
+
+using namespace jsoncons::jsonpath;
+
+void SetJsonPathValue(__in_z LPCWSTR wzFile, std::string sElementPath, __in_z LPCWSTR wzValue) {
+
+    try
+    {
+        ojson j;
+
+        _bstr_t bFile(wzFile);
+        char* cFile = bFile;
+
+        _bstr_t bValue(wzValue);
+        char* cValue = bValue;
+
+        std::ifstream is(cFile);
+
+        is >> j;
+        WcaLog(LOGMSG_STANDARD, "About to replace value, %s, %s", sElementPath.c_str(), cValue);
+
+        json_replace(j, sElementPath, cValue);
+        WcaLog(LOGMSG_STANDARD, "updated the json %s with values %s ", sElementPath.c_str(), cValue);
+
+        std::ofstream os(wzFile,
+            std::ios_base::out | std::ios_base::trunc);
+        WcaLog(LOGMSG_STANDARD, "created output stream");
+
+        pretty_print(j).dump(os);
+        WcaLog(LOGMSG_STANDARD, "dumped output stream");
+
+        os.close();
+        WcaLog(LOGMSG_STANDARD, "closed output stream");
+    }
+    catch (std::exception& e)
+    {
+        WcaLog(LOGMSG_STANDARD, "encountered error %s", e.what());
+        throw;
+    }
 }

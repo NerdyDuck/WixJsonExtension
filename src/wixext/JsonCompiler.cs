@@ -60,7 +60,6 @@ namespace NerdyDuck.Wix.JsonExtension
 			string id = null;
 			string file = null;
 			string elementPath = null;
-			string name = null;
 			string value = null;
 			int valueType = CompilerCore.IntegerNotSet;
 			int on = CompilerCore.IntegerNotSet;
@@ -92,10 +91,6 @@ namespace NerdyDuck.Wix.JsonExtension
 								// and Pointer allow backslashes to be used to escape characters, so if you intend to include literal backslashes, you must escape them as well by doubling
 								// them in this attribute. The string is formatted by MSI first, and the result is consumed as the JSON Path or Pointer.
 								elementPath = Core.GetAttributeValue(sourceLineNumbers, attribute);
-								break;
-							case "Name": 
-								// Name of JSON property to modify. If the value is empty, then the parent element specified in ElementPath is the target of any changes.
-								name = Core.GetAttributeValue(sourceLineNumbers, attribute);
 								break;
 							case "Value": 
 								// The value to set. May be one of the simple JSON types, or a JSON-formatted object. See the
@@ -189,12 +184,11 @@ namespace NerdyDuck.Wix.JsonExtension
 				row[1] = file;
 				row[2] = elementPath;
 				row[3] = verifyPath;
-				row[4] = name;
-				row[5] = value;
-				row[6] = valueType;
-				row[7] = flags;
-				row[8] = componentId;
-				row[9] = sequence;
+				row[4] = value;
+				row[5] = valueType;
+				row[6] = flags;
+				row[7] = componentId;
+				row[8] = sequence;
 
 				Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "JsonFile");
 			}
