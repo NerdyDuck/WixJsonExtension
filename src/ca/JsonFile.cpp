@@ -190,8 +190,8 @@ static HRESULT UpdateJsonFile(
     std::string elementPath(cElementPath);
 
     WcaLog(LOGMSG_STANDARD, "Found ElementPath as %s", elementPath.c_str());
-    elementPath = std::regex_replace(elementPath, std::regex("[\\[]"), "[");
-    elementPath = std::regex_replace(elementPath, std::regex("[\\]]"), "]");
+    elementPath = std::regex_replace(elementPath, std::regex("\\[(\\\\\\[)\\]"), "[");
+    elementPath = std::regex_replace(elementPath, std::regex("\\[(\\\\\\])\\]"), "]");
     WcaLog(LOGMSG_STANDARD, "Updated ElementPath to %s", elementPath.c_str());
 
     if (flags.test(FLAG_SETVALUE)) {
@@ -224,10 +224,11 @@ void SetJsonPathValue(__in_z LPCWSTR wzFile, std::string sElementPath, __in_z LP
         std::ifstream is(cFile);
 
         is >> j;
-        WcaLog(LOGMSG_STANDARD, "About to replace value, %s, %s", sElementPath.c_str(), cValue);
+        WcaLog(LOGMSG_STANDARD, "About to replace value: |%s| {%s}", sElementPath.c_str(), cValue);
 
-        json_replace(j, sElementPath, cValue);
-        WcaLog(LOGMSG_STANDARD, "updated the json %s with values %s ", sElementPath.c_str(), cValue);
+        json_replace(j, sElementPath.c_str(), cValue);
+
+        WcaLog(LOGMSG_STANDARD, "Updating the json %s with values %s.", sElementPath.c_str(), cValue);
 
         std::ofstream os(wzFile,
             std::ios_base::out | std::ios_base::trunc);
