@@ -2,6 +2,7 @@
 #include "stdafx.h"
 
 using namespace jsoncons;
+namespace fs = std::filesystem;
 
 LPCWSTR vcsJsonFileQuery = L"SELECT `JsonFile`.`JsonFile`, `JsonFile`.`File`, `JsonFile`.`ElementPath`, `JsonFile`.`VerifyPath`, "
 L"`JsonFile`.`Value`, `JsonFile`.`ValueType`, `JsonFile`.`Flags`, `JsonFile`.`Component_` FROM `JsonFile`,`Component`"
@@ -53,6 +54,9 @@ extern "C" UINT WINAPI JsonFile(
     LPWSTR sczValue = NULL;
     LPWSTR sczComponent = NULL;
 
+    INSTALLSTATE isInstalled;
+    INSTALLSTATE isAction;
+
     int iValueType = 0;
     int iFlags = 0;
         
@@ -103,9 +107,17 @@ extern "C" UINT WINAPI JsonFile(
         hr = WcaGetRecordString(hRec, jfqComponent, &sczComponent);
         ExitOnFailure(hr, "Failed to get remove folder component.");
 
-        WcaLog(LOGMSG_STANDARD, "Updating JsonFile for Id:%ls", sczId);
-        hr = UpdateJsonFile(sczId, sczFile, sczElementPath, sczVerifyPath, sczValue, iValueType, iFlags, sczComponent);
-        ExitOnFailure2(hr, "Failed while navigating path: %S for row: %S", sczFile, sczId);
+        UINT er = ::MsiGetComponentStateW(hInstall, sczComponent, &isInstalled, &isAction);
+        ExitOnFailure1(hr = HRESULT_FROM_WIN32(er), "failed to get install state for Component: %ls", sczComponent);
+        if (WcaIsInstalling(isInstalled, isAction))
+        {
+            WcaLog(LOGMSG_STANDARD, "Updating JsonFile for Id:%ls", sczId);
+            hr = UpdateJsonFile(sczId, sczFile, sczElementPath, sczVerifyPath, sczValue, iValueType, iFlags, sczComponent);
+            ExitOnFailure2(hr, "Failed while navigating path: %S for row: %S", sczFile, sczId);
+        }
+        else if (WcaIsUninstalling(isInstalled, isAction)) {
+            // Don't really worry about this yet as file is deleted on uninstall
+        }
     }
 
     // reaching the end of the list is actually a good thing, not an error
@@ -197,7 +209,7 @@ static HRESULT UpdateJsonFile(
     if (flags.test(FLAG_SETVALUE)) {
         SetJsonPathValue(wzFile, elementPath.c_str(), wzValue);
     }
-    else if (flags.test(FLAG_DELETEVALUE)){
+    else if (flags.test(FLAG_DELETEVALUE)) {
 
     }
     else if (flags.test(FLAG_JSONPOINTER)) {
@@ -221,24 +233,29 @@ void SetJsonPathValue(__in_z LPCWSTR wzFile, std::string sElementPath, __in_z LP
         _bstr_t bValue(wzValue);
         char* cValue = bValue;
 
-        std::ifstream is(cFile);
+        if (fs::exists(fs::path (wzFile))) {
+            std::ifstream is(cFile);
 
-        is >> j;
-        WcaLog(LOGMSG_STANDARD, "About to replace value: |%s| {%s}", sElementPath.c_str(), cValue);
+            is >> j;
+            WcaLog(LOGMSG_STANDARD, "About to replace value: |%s| {%s}", sElementPath.c_str(), cValue);
 
-        json_replace(j, sElementPath.c_str(), cValue);
+            json_replace(j, sElementPath.c_str(), cValue);
 
-        WcaLog(LOGMSG_STANDARD, "Updating the json %s with values %s.", sElementPath.c_str(), cValue);
+            WcaLog(LOGMSG_STANDARD, "Updating the json %s with values %s.", sElementPath.c_str(), cValue);
 
-        std::ofstream os(wzFile,
-            std::ios_base::out | std::ios_base::trunc);
-        WcaLog(LOGMSG_STANDARD, "created output stream");
+            std::ofstream os(wzFile,
+                std::ios_base::out | std::ios_base::trunc);
+            WcaLog(LOGMSG_STANDARD, "created output stream");
 
-        pretty_print(j).dump(os);
-        WcaLog(LOGMSG_STANDARD, "dumped output stream");
+            pretty_print(j).dump(os);
+            WcaLog(LOGMSG_STANDARD, "dumped output stream");
 
-        os.close();
-        WcaLog(LOGMSG_STANDARD, "closed output stream");
+            os.close();
+            WcaLog(LOGMSG_STANDARD, "closed output stream");
+        }
+        else {
+            WcaLog(LOGMSG_STANDARD, "Unable to locate file: ", sElementPath.c_str(), cValue);
+        }
     }
     catch (std::exception& e)
     {

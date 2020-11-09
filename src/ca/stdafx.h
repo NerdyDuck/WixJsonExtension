@@ -15,6 +15,8 @@
 #include <fstream>
 #include <comdef.h> 
 #include <regex>
+#include <cstdint>
+#include <filesystem>
 // TODO: reference additional headers your program requires here
 #include "jsoncons/json.hpp"
 #include "jsoncons_ext/jsonpath/jsonpath.hpp"
