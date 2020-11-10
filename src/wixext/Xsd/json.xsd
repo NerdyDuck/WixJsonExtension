@@ -42,41 +42,7 @@
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>
-      <xs:attribute name="ValueType">
-        <xs:annotation>
-          <xs:documentation>The type of Value.</xs:documentation>
-        </xs:annotation>
-        <xs:simpleType>
-          <xs:restriction base="xs:NMTOKEN">
-            <xs:enumeration value="string">
-              <xs:annotation>
-                <xs:documentation>Value is a string.</xs:documentation>
-              </xs:annotation>
-            </xs:enumeration>
-            <xs:enumeration value="number">
-              <xs:annotation>
-                <xs:documentation>Value is a numeric value.</xs:documentation>
-              </xs:annotation>
-            </xs:enumeration>
-            <xs:enumeration value="bool">
-              <xs:annotation>
-                <xs:documentation>Value is a Boolean value, true or false.</xs:documentation>
-              </xs:annotation>
-            </xs:enumeration>
-            <xs:enumeration value="object">
-              <xs:annotation>
-                <xs:documentation>Value is a JSON-encoded object.</xs:documentation>
-              </xs:annotation>
-            </xs:enumeration>
-            <xs:enumeration value="null">
-              <xs:annotation>
-                <xs:documentation>Value is null.</xs:documentation>
-              </xs:annotation>
-            </xs:enumeration>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-      <xs:attribute name="Action" use="required">
+      <xs:attribute name="Action">
         <xs:annotation>
           <xs:documentation>The type of modification to be made to the JSON file when the component is installed or uninstalled.</xs:documentation>
         </xs:annotation>

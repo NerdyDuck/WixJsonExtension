@@ -61,7 +61,6 @@ namespace NerdyDuck.Wix.JsonExtension
 			string file = null;
 			string elementPath = null;
 			string value = null;
-			int valueType = CompilerCore.IntegerNotSet;
 			int on = CompilerCore.IntegerNotSet;
 			int flags = 0;
 			int action = CompilerCore.IntegerNotSet;
@@ -96,10 +95,6 @@ namespace NerdyDuck.Wix.JsonExtension
 								// The value to set. May be one of the simple JSON types, or a JSON-formatted object. See the
 								// <html:a href="http://msdn.microsoft.com/library/aa368609(VS.85).aspx" target="_blank">Formatted topic</html:a> for information how to escape square brackets in the value.
 								value = Core.GetAttributeValue(sourceLineNumbers, attribute);
-								break;
-							case "ValueType": 
-								// The type of Value.
-								valueType = ValidateValueType(node, sourceLineNumbers, attribute, valueType);
 								break;
 							case "Action": 
 								// The type of modification to be made to the JSON file when the component is installed or uninstalled.
@@ -141,57 +136,46 @@ namespace NerdyDuck.Wix.JsonExtension
 				}
 			}
 
-			if (CompilerCore.IntegerNotSet == valueType)
-			{
-				Core.OnMessage(WixErrors.ExpectedAttribute(sourceLineNumbers, node.Name, "ValueType"));
-				valueType = CompilerCore.IllegalInteger;
-			}
-
-			if (CompilerCore.IntegerNotSet == on)
-			{
-				Core.OnMessage(WixErrors.ExpectedAttribute(sourceLineNumbers, node.Name, "On"));
-			}
-
 			if (CompilerCore.IntegerNotSet == action)
 			{
-				Core.OnMessage(WixErrors.ExpectedAttribute(sourceLineNumbers, node.Name, "Action"));
-			}
-
-			if (CompilerCore.IntegerNotSet == selectionLanguage)
-			{
-				Core.OnMessage(WixErrors.ExpectedAttribute(sourceLineNumbers, node.Name, "SelectionLanguage"));
+				// default is set value
+				flags |= 2;
 			}
 
 			foreach (XmlNode child in node.ChildNodes)
 			{
-				if (XmlNodeType.Element == child.NodeType)
+				if (XmlNodeType.Element != child.NodeType)
 				{
-					if (child.NamespaceURI == Schema.TargetNamespace)
-					{
-						Core.UnexpectedElement(node, child);
-					}
-					else
-					{
-						Core.UnsupportedExtensionElement(node, child);
-					}
+					continue;
+				}
+
+				if (child.NamespaceURI == Schema.TargetNamespace)
+				{
+					Core.UnexpectedElement(node, child);
+				}
+				else
+				{
+					Core.UnsupportedExtensionElement(node, child);
 				}
 			}
 
-			if (!Core.EncounteredError)
+			if (Core.EncounteredError)
 			{
-				Row row = Core.CreateRow(sourceLineNumbers, "JsonFile");
-				row[0] = id;
-				row[1] = file;
-				row[2] = elementPath;
-				row[3] = verifyPath;
-				row[4] = value;
-				row[5] = valueType;
-				row[6] = flags;
-				row[7] = componentId;
-				row[8] = sequence;
-
-				Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "JsonFile");
+				return;
 			}
+
+			Row row = Core.CreateRow(sourceLineNumbers, "JsonFile");
+			int rowIdx = 0;
+			row[rowIdx++] = id;
+			row[rowIdx++] = file;
+			row[rowIdx++] = elementPath;
+			row[rowIdx++] = verifyPath;
+			row[rowIdx++] = value;
+			row[rowIdx++] = flags;
+			row[rowIdx++] = componentId;
+			row[rowIdx] = sequence;
+
+			Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "JsonFile");
 		}
 
 		private int ValidatePreserveModifiedDate(XmlNode node, SourceLineNumberCollection sourceLineNumbers,
@@ -300,7 +284,6 @@ namespace NerdyDuck.Wix.JsonExtension
 			}
 			else
 			{
-				
 				switch (actionValue)
 				{
 					case ActionDeleteValue:
@@ -326,51 +309,12 @@ namespace NerdyDuck.Wix.JsonExtension
 			return action;
 		}
 
-		private int ValidateValueType(XmlNode node, SourceLineNumberCollection sourceLineNumbers, XmlAttribute attribute,
-			int valueType)
-		{
-			string valueTypeStr = Core.GetAttributeValue(sourceLineNumbers, attribute);
-			if (valueTypeStr.Length == 0)
-			{
-				valueType = CompilerCore.IllegalInteger;
-			}
-			else
-			{
-				switch (valueTypeStr)
-				{
-					case "null":
-						valueType = 0;
-						break;
-					case "string":
-						valueType = 1;
-						break;
-					case "number":
-						valueType = 3;
-						break;
-					case "bool":
-						valueType = 4;
-						break;
-					case "object":
-						valueType = 5;
-						break;
-					default:
-						Core.OnMessage(WixErrors.IllegalAttributeValue(sourceLineNumbers, node.Name,
-							"ValueType", valueTypeStr, "string", "number", "bool", "object",
-							"null"));
-						break;
-				}
-			}
-
-			return valueType;
-		}
-
 		public int? ToNullableInt(string s)
 		{
 			if (int.TryParse(s, out int i))
 			{
 				return i;
 			}
-
 			return null;
 		}
 	}

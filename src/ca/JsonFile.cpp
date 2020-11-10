@@ -5,9 +5,9 @@ using namespace jsoncons;
 namespace fs = std::filesystem;
 
 LPCWSTR vcsJsonFileQuery = L"SELECT `JsonFile`.`JsonFile`, `JsonFile`.`File`, `JsonFile`.`ElementPath`, `JsonFile`.`VerifyPath`, "
-L"`JsonFile`.`Value`, `JsonFile`.`ValueType`, `JsonFile`.`Flags`, `JsonFile`.`Component_` FROM `JsonFile`,`Component`"
+L"`JsonFile`.`Value`, `JsonFile`.`Flags`, `JsonFile`.`Component_` FROM `JsonFile`,`Component`"
 L"WHERE `JsonFile`.`Component_`=`Component`.`Component` ORDER BY `File`, `Sequence`";
-enum eJsonFileQuery { jfqId = 1, jfqFile, jfqElementPath, jfqVerifyPath, jfqValue, jfqValueType, jfqFlags, jfqComponent };
+enum eJsonFileQuery { jfqId = 1, jfqFile, jfqElementPath, jfqVerifyPath, jfqValue, jfqFlags, jfqComponent };
 
 static HRESULT UpdateJsonFile(
     __in_z LPCWSTR wzId,
@@ -15,7 +15,6 @@ static HRESULT UpdateJsonFile(
     __in_z LPCWSTR wzElementPath,
     __in_z LPCWSTR wzVerifyPath,
     __in_z LPCWSTR wzValue,
-    __in int iValueType,
     __in int iFlags,
     __in_z LPCWSTR wzComponent
 );
@@ -37,7 +36,6 @@ extern "C" UINT WINAPI JsonFile(
     hr = WcaInitialize(hInstall, "JsonFile");
 
     WcaLog(LOGMSG_STANDARD, "Entered JsonFile CA");
-    //AssertSz(FALSE, "debug JsonFile");
         
     WcaLog(LOGMSG_STANDARD, "Created PMSIHANDLE hView");
     PMSIHANDLE hView;
@@ -57,7 +55,6 @@ extern "C" UINT WINAPI JsonFile(
     INSTALLSTATE isInstalled;
     INSTALLSTATE isAction;
 
-    int iValueType = 0;
     int iFlags = 0;
         
     ExitOnFailure(hr, "Failed to initialize JsonFile.");
@@ -92,12 +89,8 @@ extern "C" UINT WINAPI JsonFile(
         ExitOnFailure1(hr, "Failed to get VerifyPath for JsonFile with Id: %s", sczId);
 
         WcaLog(LOGMSG_STANDARD, "Getting JsonFile Value for Id:%ls", sczId);
-        hr = WcaGetRecordString(hRec, jfqValue, &sczValue);
+        hr = WcaGetRecordFormattedString(hRec, jfqValue, &sczValue);
         ExitOnFailure1(hr, "Failed to get Value for JsonFile with Id: %s", sczId);
-
-        WcaLog(LOGMSG_STANDARD, "Getting JsonFile ValueType for Id:%ls", sczId);
-        hr = WcaGetRecordInteger(hRec, jfqValueType, &iValueType);
-        ExitOnFailure1(hr, "Failed to get ValueType for JsonFile with Id: %s", sczId);
 
         WcaLog(LOGMSG_STANDARD, "Getting JsonFile Flags for Id:%ls", sczId);
         hr = WcaGetRecordInteger(hRec, jfqFlags, &iFlags);
@@ -112,7 +105,7 @@ extern "C" UINT WINAPI JsonFile(
         if (WcaIsInstalling(isInstalled, isAction))
         {
             WcaLog(LOGMSG_STANDARD, "Updating JsonFile for Id:%ls", sczId);
-            hr = UpdateJsonFile(sczId, sczFile, sczElementPath, sczVerifyPath, sczValue, iValueType, iFlags, sczComponent);
+            hr = UpdateJsonFile(sczId, sczFile, sczElementPath, sczVerifyPath, sczValue, iFlags, sczComponent);
             ExitOnFailure2(hr, "Failed while navigating path: %S for row: %S", sczFile, sczId);
         }
         else if (WcaIsUninstalling(isInstalled, isAction)) {
@@ -158,13 +151,11 @@ static HRESULT UpdateJsonFile(
     __in_z LPCWSTR wzElementPath,
     __in_z LPCWSTR wzVerifyPath,
     __in_z LPCWSTR wzValue,
-    __in int iValueType,
     __in int iFlags,
     __in_z LPCWSTR wzComponent
 )
 {
     HRESULT hr = S_OK;
-    // DWORD er;
     ojson j = NULL;
     ::SetLastError(0);
 
@@ -254,7 +245,7 @@ void SetJsonPathValue(__in_z LPCWSTR wzFile, std::string sElementPath, __in_z LP
             WcaLog(LOGMSG_STANDARD, "closed output stream");
         }
         else {
-            WcaLog(LOGMSG_STANDARD, "Unable to locate file: ", sElementPath.c_str(), cValue);
+            WcaLog(LOGMSG_STANDARD, "Unable to locate file: %s", cValue);
         }
     }
     catch (std::exception& e)

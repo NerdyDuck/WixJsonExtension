@@ -1,23 +1,14 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
-
-
 <tableDefinitions xmlns="http://schemas.microsoft.com/wix/2006/tables">
     <tableDefinition name="JsonFile" createSymbols="yes">
-        <columnDefinition name="JsonFile" type="string" length="255" primaryKey="yes" modularize="column" 
-                          category="identifier" description="Primary key, non-localized token."/>
-        <columnDefinition name="File" type="localized" length="255" modularize="property"
-                          category="formatted" description="The .json file in which to write the information"/>
-        <columnDefinition name="ElementPath" type="localized" length="0" modularize="property" 
-                          category="formatted" description=">The path to the parent element of the element to be modified. Either JSON Path or JSON Pointer semantics."/>
-        <columnDefinition name="VerifyPath" type="localized" length="0" modularize="property" nullable="yes" 
-                          category="formatted" description="The JSON Path query run from ElementPath to verify whether a repair is necessary. Also used to uninstall."/>
-        <columnDefinition name="Value" type="localized" length="0" modularize="property" nullable="yes" escapeIdtCharacters="yes" 
-                          category="formatted" description="The value to set. May be one of the simple JSON types, or a JSON-formatted object."/>
-        <columnDefinition name="ValueType" type="number" length="4" minValue="0" maxValue="4" description="Null=0,String=1,Number=2,Bool=3,Object=4"/>
+        <columnDefinition name="JsonFile" type="string" length="255" primaryKey="yes" modularize="column" category="identifier" description="Primary key, non-localized token."/>
+        <columnDefinition name="File" type="localized" length="255" modularize="property" category="formatted" description="The .json file in which to write the information"/>
+        <columnDefinition name="ElementPath" type="localized" length="0" modularize="property" category="formatted" description=">The path to the parent element of the element to be modified. Either JSON Path or JSON Pointer semantics."/>
+        <columnDefinition name="VerifyPath" type="localized" length="0" modularize="property" nullable="yes" category="formatted" description="The JSON Path query run from ElementPath to verify whether a repair is necessary. Also used to uninstall."/>
+        <columnDefinition name="Value" type="localized" length="0" modularize="property" nullable="yes" escapeIdtCharacters="yes" category="formatted" description="The value to set. May be one of the simple JSON types, or a JSON-formatted object."/>
         <columnDefinition name="Flags" type="number" length="4" minValue="0" maxValue="63" description="deleteValue=1,setValue=2,addArrayValue=4,uninstall=8,preserveDate=16,jsonPointer=32"/>
-        <columnDefinition name="Component_" type="string" length="72" modularize="column" keyTable="Component" keyColumn="1" 
-                          category="identifier" description="Foreign key into the Component table referencing the component that controls the execution of the JSON file modification."/>
+        <columnDefinition name="Component_" type="string" length="72" modularize="column" keyTable="Component" keyColumn="1" category="identifier" description="Foreign key into the Component table referencing the component that controls the execution of the JSON file modification."/>
         <columnDefinition name="Sequence" type="number" length="2" nullable="yes" description="Order to execute the JSON file modifications."/>
     </tableDefinition>
 </tableDefinitions>
