@@ -69,7 +69,7 @@
     <EmbeddedResource Include="Data\messages.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </EmbeddedResource>
-    <EmbeddedResource Include="..\wixlib\bin\Debug\json.wixlib">
+    <EmbeddedResource Include="..\wixlib\bin\$(Configuration)\json.wixlib">
       <LogicalName>NerdyDuck.Wix.JsonExtension.Data.json.wixlib</LogicalName>
       <Link>Data\json.wixlib</Link>
     </EmbeddedResource>

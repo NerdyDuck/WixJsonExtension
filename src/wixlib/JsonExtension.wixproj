@@ -21,8 +21,7 @@
     <OutputPath>bin\$(Configuration)\</OutputPath>
     <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
     <LibBindFiles>True</LibBindFiles>
-    <LibAdditionalOptions>-b $(SolutionDir)src\wixlib\bin\$(Configuration)
--b $(SolutionDir)src\wixlib\bin\$(Configuration)</LibAdditionalOptions>
+    <LibAdditionalOptions>-b $(SolutionDir)src\ca\bin\$(Configuration)</LibAdditionalOptions>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Library.wxs" />
