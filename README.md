@@ -1,7 +1,7 @@
 # WixJsonExtension
 #### An extension to Windows&reg; installer XML (WiX) to create or modify JSON-formatted files during an installation.
 
-## Status: Under construction, only basic JSONPath supported for install only applications
+## Status: JSONPath supported for install only applications
 
 [Windows&reg; installer XML](http://wixtoolset.org/) is an open-source set of tools to create Windows® software installation setups (\*.msi), using XML files to define the content and behavior of the setup.
 One important step in most setups is to modify configuration files to reflect either settings specified during the setup by the user, or other settings specific to the individual installation.

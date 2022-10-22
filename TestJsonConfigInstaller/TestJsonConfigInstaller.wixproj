@@ -29,11 +29,9 @@
   </ItemGroup>
   <ItemGroup>
     <WixExtension Include="WixJsonExtension">
-      <HintPath>..\src\wixext\bin\$(Configuration)\WixJsonExtension.dll</HintPath>
+      <HintPath>WixJsonExtension.dll</HintPath>
       <Name>WixJsonExtension</Name>
     </WixExtension>
-  </ItemGroup>
-  <ItemGroup>
     <WixExtension Include="WixUtilExtension">
       <HintPath>$(WixExtDir)\WixUtilExtension.dll</HintPath>
       <Name>WixUtilExtension</Name>

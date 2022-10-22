@@ -89,4 +89,7 @@
     <PreBuildEvent>
     </PreBuildEvent>
   </PropertyGroup>
+  <PropertyGroup>
+    <PostBuildEvent>copy .\WixJsonExtension.dll ..\..\..\..\TestJsonConfigInstaller\</PostBuildEvent>
+  </PropertyGroup>
 </Project>
