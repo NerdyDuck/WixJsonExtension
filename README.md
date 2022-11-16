@@ -4,7 +4,7 @@
 ## Status: JSONPath supported for install only applications
 
 To Use this Wix Extension
-1. Download the release assembly WixJsonExtension.dll ans store it somewhere your wixproj can access it 
+1. Download the release assembly WixJsonExtension.dll and store it somewhere your wixproj can access it 
 2. Inside your wixproj in visual studio add a reference to the above assembly
 3. Refer to the product.wxs inside the TestJsonConfigInstaller project here for examples on how to manipulate your JSON file inside of an MSI
 
