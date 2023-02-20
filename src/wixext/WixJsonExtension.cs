@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Reflection;
-using System.Text;
-using Microsoft.Tools.WindowsInstallerXml;
+﻿using Microsoft.Tools.WindowsInstallerXml;
 
 namespace NerdyDuck.Wix.JsonExtension
 {
@@ -13,51 +9,18 @@ namespace NerdyDuck.Wix.JsonExtension
         private TableDefinitionCollection _tableDefinitions;
         private Library _library;
 
-        public override CompilerExtension CompilerExtension
-        {
-            get
-            {
-                if (_compilerExtension == null)
-                {
-                    _compilerExtension = new JsonCompiler();
-                }
-                return _compilerExtension;
-            }
-        }
+	   public override CompilerExtension CompilerExtension => _compilerExtension ??= new JsonCompiler();
 
-        public override DecompilerExtension DecompilerExtension
-        {
-            get
-            {
-                if (_decompilerExtension == null)
-                {
-                    _decompilerExtension = new JsonDecompiler();
-                }
-                return _decompilerExtension;
-            }
-        }
+	   public override DecompilerExtension DecompilerExtension => _decompilerExtension ??= new JsonDecompiler();
 
-        public override TableDefinitionCollection TableDefinitions
-        {
-            get
-            {
-                if (_tableDefinitions == null)
-                {
-                    _tableDefinitions = LoadTableDefinitionHelper(typeof(WixJsonExtension).Assembly, "NerdyDuck.Wix.JsonExtension.Data.tables.xml");
-                }
-                return _tableDefinitions;
-            }
-        }
+	   public override TableDefinitionCollection TableDefinitions => _tableDefinitions ??= LoadTableDefinitionHelper(
+		   typeof(WixJsonExtension).Assembly,
+		   "NerdyDuck.Wix.JsonExtension.Data.tables.xml");
 
-        public override Library GetLibrary(TableDefinitionCollection tableDefinitions)
-        {
-            if (_library == null)
-            {
-                _library = LoadLibraryHelper(typeof(WixJsonExtension).Assembly, "NerdyDuck.Wix.JsonExtension.Data.json.wixlib", tableDefinitions);
-            }
-            return _library;
-        }
+	   public override Library GetLibrary(TableDefinitionCollection tableDefinitions) => _library ??= LoadLibraryHelper(
+		   typeof(WixJsonExtension).Assembly,
+		   "NerdyDuck.Wix.JsonExtension.Data.json.wixlib", tableDefinitions);
 
-        public override string DefaultCulture => "en-us";
+	   public override string DefaultCulture => "en-us";
     }
 }

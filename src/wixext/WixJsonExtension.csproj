@@ -1,14 +1,18 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="15.0">
-  <PropertyGroup Label="Project settings">
-    <TargetFramework>net20</TargetFramework>
-    <DefaultLanguage>en-US</DefaultLanguage>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{505C6DB6-6999-487B-86D0-6AF96EF51D63}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>NerdyDuck.Wix.JsonExtension</RootNamespace>
     <AssemblyName>WixJsonExtension</AssemblyName>
-    <OutputType>Library</OutputType>
-    <Platforms>AnyCPU</Platforms>
+    <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Label="Assembly attributes">
     <Company>NerdyDuck</Company>
@@ -22,41 +26,70 @@
     <AssemblyTitle>WixJsonExtension</AssemblyTitle>
     <Description>An extension to Windows® installer XML (WiX) to create or modify JSON-formatted files during an installation.</Description>
   </PropertyGroup>
-  <PropertyGroup Label="Debug config" Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <DefineDebug>true</DefineDebug>
-    <DefineTrace>true</DefineTrace>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  <PropertyGroup Label="Release config" Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <DefineDebug>false</DefineDebug>
-    <DefineTrace>true</DefineTrace>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <None Remove="Data\messages.xml" />
-    <None Remove="Data\tables.xml" />
-    <None Remove="Xsd\json.xsd" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Update="Data\*.xml" />
-    <EmbeddedResource Update="Xsd\json.xsd" />
-    <EmbeddedResource Include="..\wixlib\bin\$(Configuration)\json.wixlib">
-      <Link>Data\json.wixlib</Link>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Data\messages.xml" />
-    <EmbeddedResource Include="Data\tables.xml" />
-    <EmbeddedResource Include="Xsd\json.xsd" />
-  </ItemGroup>
-  <ItemGroup>
+    <Reference Include="Microsoft.Deployment.WindowsInstaller, Version=3.0.0.0, Culture=neutral, PublicKeyToken=ce35f76fcda82bad, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\Program Files (x86)\WiX Toolset v3.11\bin\Microsoft.Deployment.WindowsInstaller.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
     <Reference Include="wix">
-      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\WiX Toolset v3.11\bin\wix.dll</HintPath>
+      <HintPath>..\..\..\..\..\Program Files (x86)\WiX Toolset v3.11\bin\wix.dll</HintPath>
     </Reference>
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="InstallerMethod.cs" />
+    <Compile Include="JsonAction.cs" />
+    <Compile Include="JsonCompiler.cs" />
+    <Compile Include="JsonDecompiler.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SelectionLanguage.cs" />
+    <Compile Include="TableFlags.cs" />
+    <Compile Include="WixJsonExtension.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Data\messages.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\wixlib\bin\$(Configuration)\json.wixlib">
+      <LogicalName>NerdyDuck.Wix.JsonExtension.Data.json.wixlib</LogicalName>
+      <Link>Data\json.wixlib</Link>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Data\tables.xml">
+      <LogicalName>$(RootNamespace).Data.tables.xml</LogicalName>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Xsd\json.xsd">
+      <SubType>Designer</SubType>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </EmbeddedResource>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PreBuildEvent>
+    </PreBuildEvent>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PostBuildEvent>copy .\WixJsonExtension.dll ..\..\..\..\TestJsonConfigInstaller\</PostBuildEvent>
+  </PropertyGroup>
 </Project>
